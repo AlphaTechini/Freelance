@@ -1,0 +1,39 @@
+const BSC_TESTNET_DETAILS = {
+  chainId: '0x61', // Hexadecimal value for 97
+  chainName: 'BNB Smart Chain Testnet',
+  nativeCurrency: {
+    name: 'tBNB',
+    symbol: 'tBNB',
+    decimals: 18
+  },
+  rpcUrls: ['data-seed-prebsc-1-s1.binance.org'],
+  blockExplorerUrls: ['testnet.bscscan.com']
+};
+
+async function changeNetworkToBSCTestnet() {
+  if (!window.ethereum) {
+    alert('MetaMask is not installed. Please install it to use this feature.');
+    return;
+  }
+
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: BSC_TESTNET_DETAILS.chainId }],
+    });
+  } catch (switchError) {
+    if (switchError.code === 4902) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [BSC_TESTNET_DETAILS],
+        });
+      } catch (addError) {
+        console.error('Failed to add the test network', addError);
+      }
+    }
+  }
+}
+// Call changeNetworkToBSCTestnet() in your demo application
+
+

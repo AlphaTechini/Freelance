@@ -1,0 +1,458 @@
+import githubService from './githubService.js';
+import webScrapingService from './webScrapingService.js';
+import invokeLLMService from './invokeLLMService.js';
+import PortfolioAnalysis from '../models/PortfolioAnalysis.js';
+
+class PortfolioAnalyzer {
+  constructor() {
+    this.analysisInProgress = new Set();
+  }
+
+  /**
+   * Validate URLs before analysis (Requirement 11.2)
+   * @param {string} portfolioUrl - Portfolio website URL
+   * @param {string} githubUrl - GitHub profile URL
+   * @returns {Promise<object>} - Validation results
+   */
+  async validateUrls(portfolioUrl, githubUrl) {
+    const results = {
+      portfolioValid: false,
+      githubValid: false,
+      errors: []
+    };
+
+    try {
+      // Validate portfolio URL
+      if (portfolioUrl) {
+        results.portfolioValid = await webScrapingService.validateUrl(portfolioUrl);
+        if (!results.portfolioValid) {
+          results.errors.push('Portfolio URL is not accessible');
+        }
+      }
+
+      // Validate GitHub URL
+      if (githubUrl) {
+        try {
+          const { username } = githubService.parseGitHubUrl(githubUrl);
+          if (username) {
+            results.githubValid = true;
+          }
+        } catch (error) {
+          results.errors.push('Invalid GitHub URL format');
+        }
+      }
+
+      return results;
+    } catch (error) {
+      results.errors.push(`URL validation failed: ${error.message}`);
+      return results;
+    }
+  }
+
+  /**
+   * Calculate code quality score based on GitHub data
+   * @param {object} githubData - GitHub analysis results
+   * @returns {number} - Code quality score (0-100)
+   */
+  calculateCodeQualityScore(githubData) {
+    let score = 0;
+
+    // Repository count (max 20 points)
+    score += Math.min(githubData.repositories * 2, 20);
+
+    // Stars received (max 15 points)
+    score += Math.min(githubData.stars * 0.5, 15);
+
+    // Language diversity (max 15 points)
+    score += Math.min(githubData.languages.length * 3, 15);
+
+    // Recent activity (max 20 points)
+    if (githubData.lastActivity) {
+      const daysSinceActivity = (Date.now() - new Date(githubData.lastActivity)) / (1000 * 60 * 60 * 24);
+      if (daysSinceActivity < 30) score += 20;
+      else if (daysSinceActivity < 90) score += 15;
+      else if (daysSinceActivity < 180) score += 10;
+      else score += 5;
+    }
+
+    // README quality (max 15 points)
+    const readmeQualityScores = { excellent: 15, good: 10, poor: 5 };
+    const avgReadmeScore = githubData.topProjects.reduce((sum, project) => {
+      return sum + (readmeQualityScores[project.readmeQuality] || 0);
+    }, 0) / Math.max(githubData.topProjects.length, 1);
+    score += avgReadmeScore;
+
+    // Commit activity (max 15 points)
+    score += Math.min(githubData.commits * 0.3, 15);
+
+    return Math.min(Math.round(score), 100);
+  }
+
+  /**
+   * Calculate project depth score based on portfolio and GitHub data
+   * @param {object} portfolioData - Portfolio analysis results
+   * @param {object} githubData - GitHub analysis results
+   * @returns {number} - Project depth score (0-100)
+   */
+  calculateProjectDepthScore(portfolioData, githubData) {
+    let score = 0;
+
+    // Portfolio projects (max 25 points)
+    if (portfolioData.projects) {
+      score += Math.min(portfolioData.projects.length * 5, 25);
+      
+      // Complexity bonus
+      const complexProjects = portfolioData.projects.filter(p => p.complexity === 'complex').length;
+      const moderateProjects = portfolioData.projects.filter(p => p.complexity === 'moderate').length;
+      score += complexProjects * 3 + moderateProjects * 2;
+    }
+
+    // GitHub repository diversity (max 20 points)
+    score += Math.min(githubData.repositories * 1.5, 20);
+
+    // Technology stack diversity (max 20 points)
+    const techCount = portfolioData.technologies ? portfolioData.technologies.length : 0;
+    score += Math.min(techCount * 2, 20);
+
+    // Deployed projects (max 20 points)
+    if (portfolioData.hasDeployment) score += 20;
+    const deployedProjects = portfolioData.projects ? 
+      portfolioData.projects.filter(p => p.deploymentUrl).length : 0;
+    score += Math.min(deployedProjects * 5, 15);
+
+    // GitHub stars as quality indicator (max 15 points)
+    score += Math.min(githubData.stars * 0.3, 15);
+
+    return Math.min(Math.round(score), 100);
+  }
+
+  /**
+   * Calculate portfolio completeness score
+   * @param {object} portfolioData - Portfolio analysis results
+   * @param {object} githubData - GitHub analysis results
+   * @returns {number} - Portfolio completeness score (0-100)
+   */
+  calculatePortfolioCompletenessScore(portfolioData, githubData) {
+    let score = 0;
+
+    // Basic portfolio structure (max 30 points)
+    if (portfolioData.title && portfolioData.title !== 'Untitled') score += 10;
+    if (portfolioData.description && portfolioData.description.length > 50) score += 10;
+    if (portfolioData.qualityMetrics && portfolioData.qualityMetrics.qualityScore > 50) score += 10;
+
+    // Project documentation (max 25 points)
+    if (portfolioData.projects && portfolioData.projects.length > 0) {
+      score += 10;
+      const wellDocumentedProjects = portfolioData.projects.filter(p => 
+        p.description && p.description.length > 30
+      ).length;
+      score += Math.min(wellDocumentedProjects * 3, 15);
+    }
+
+    // GitHub profile completeness (max 25 points)
+    if (githubData.topProjects && githubData.topProjects.length > 0) score += 10;
+    const projectsWithReadme = githubData.topProjects.filter(p => p.hasReadme).length;
+    score += Math.min(projectsWithReadme * 3, 15);
+
+    // Professional presentation (max 20 points)
+    if (portfolioData.qualityMetrics) {
+      if (portfolioData.qualityMetrics.hasViewportMeta) score += 5;
+      if (portfolioData.qualityMetrics.images > 0) score += 5;
+      if (portfolioData.qualityMetrics.sections > 2) score += 5;
+      if (portfolioData.qualityMetrics.wordCount > 200) score += 5;
+    }
+
+    return Math.min(Math.round(score), 100);
+  }
+
+  /**
+   * Generate improvement suggestions using InvokeLLM (Requirement 2.4)
+   * @param {object} scores - Calculated scores
+   * @param {object} portfolioData - Portfolio analysis results
+   * @param {object} githubData - GitHub analysis results
+   * @returns {Promise<Array>} - Array of AI-generated improvement suggestions
+   */
+  async generateImprovementSuggestions(scores, portfolioData, githubData) {
+    try {
+      // Try InvokeLLM first for AI-powered suggestions
+      const aiSuggestions = await invokeLLMService.generateImprovementSuggestions(
+        { portfolioData, githubData }, 
+        scores
+      );
+      
+      if (aiSuggestions && aiSuggestions.length > 0) {
+        return aiSuggestions;
+      }
+    } catch (error) {
+      console.warn('InvokeLLM suggestions failed, falling back to rule-based:', error.message);
+    }
+
+    // Fallback to rule-based suggestions
+    return this.generateRuleBasedSuggestions(scores, portfolioData, githubData);
+  }
+
+  /**
+   * Generate rule-based improvement suggestions (fallback)
+   * @param {object} scores - Calculated scores
+   * @param {object} portfolioData - Portfolio analysis results
+   * @param {object} githubData - GitHub analysis results
+   * @returns {Array} - Array of improvement suggestions
+   */
+  generateRuleBasedSuggestions(scores, portfolioData, githubData) {
+    const suggestions = [];
+
+    // Code quality improvements
+    if (scores.codeQuality < 70) {
+      if (githubData.commits < 20) {
+        suggestions.push({
+          priority: 1,
+          suggestion: "Increase your GitHub activity by making regular commits to show consistent development work",
+          category: "github"
+        });
+      }
+
+      if (githubData.languages.length < 3) {
+        suggestions.push({
+          priority: 2,
+          suggestion: "Learn and showcase projects in additional programming languages to demonstrate versatility",
+          category: "code"
+        });
+      }
+
+      const poorReadmeCount = githubData.topProjects.filter(p => p.readmeQuality === 'poor').length;
+      if (poorReadmeCount > 2) {
+        suggestions.push({
+          priority: 1,
+          suggestion: "Improve README files in your repositories with clear descriptions, setup instructions, and usage examples",
+          category: "documentation"
+        });
+      }
+    }
+
+    // Project depth improvements
+    if (scores.projectDepth < 70) {
+      if (!portfolioData.hasDeployment) {
+        suggestions.push({
+          priority: 1,
+          suggestion: "Deploy your projects to live URLs using platforms like Vercel, Netlify, or Heroku to showcase working applications",
+          category: "portfolio"
+        });
+      }
+
+      if (portfolioData.projects && portfolioData.projects.length < 3) {
+        suggestions.push({
+          priority: 2,
+          suggestion: "Add more projects to your portfolio to demonstrate a broader range of skills and experience",
+          category: "portfolio"
+        });
+      }
+
+      const complexProjects = portfolioData.projects ? 
+        portfolioData.projects.filter(p => p.complexity === 'complex').length : 0;
+      if (complexProjects === 0) {
+        suggestions.push({
+          priority: 2,
+          suggestion: "Build more complex projects that showcase advanced features, database integration, or API usage",
+          category: "code"
+        });
+      }
+    }
+
+    // Portfolio completeness improvements
+    if (scores.portfolioCompleteness < 70) {
+      if (!portfolioData.description || portfolioData.description.length < 50) {
+        suggestions.push({
+          priority: 1,
+          suggestion: "Add a detailed personal bio and description of your skills and experience to your portfolio",
+          category: "portfolio"
+        });
+      }
+
+      if (portfolioData.qualityMetrics && portfolioData.qualityMetrics.qualityScore < 50) {
+        suggestions.push({
+          priority: 2,
+          suggestion: "Improve your portfolio website design with better structure, navigation, and visual presentation",
+          category: "portfolio"
+        });
+      }
+
+      const projectsWithoutDescription = portfolioData.projects ? 
+        portfolioData.projects.filter(p => !p.description || p.description.length < 30).length : 0;
+      if (projectsWithoutDescription > 1) {
+        suggestions.push({
+          priority: 2,
+          suggestion: "Add detailed descriptions to your projects explaining the problem solved, technologies used, and your role",
+          category: "documentation"
+        });
+      }
+    }
+
+    // General improvements
+    if (githubData.stars < 5) {
+      suggestions.push({
+        priority: 3,
+        suggestion: "Contribute to open-source projects or create projects that solve real problems to gain GitHub stars",
+        category: "github"
+      });
+    }
+
+    // Sort by priority and return top 5
+    return suggestions
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, 5);
+  }
+
+  /**
+   * Perform complete portfolio analysis (Requirements 2.1, 2.2, 2.3)
+   * @param {string} candidateId - Candidate identifier
+   * @param {string} portfolioUrl - Portfolio website URL
+   * @param {string} githubUrl - GitHub profile URL
+   * @returns {Promise<object>} - Analysis results
+   */
+  async analyzePortfolio(candidateId, portfolioUrl, githubUrl) {
+    // Check if analysis is already in progress
+    if (this.analysisInProgress.has(candidateId)) {
+      throw new Error('Analysis already in progress for this candidate');
+    }
+
+    this.analysisInProgress.add(candidateId);
+
+    try {
+      // Create initial analysis record
+      const analysis = new PortfolioAnalysis({
+        candidateId,
+        portfolioUrl,
+        githubUrl,
+        status: 'analyzing'
+      });
+      await analysis.save();
+
+      // Validate URLs first (Requirement 11.2)
+      const validation = await this.validateUrls(portfolioUrl, githubUrl);
+      if (validation.errors.length > 0) {
+        analysis.status = 'failed';
+        analysis.error = validation.errors.join('; ');
+        await analysis.save();
+        throw new Error(validation.errors.join('; '));
+      }
+
+      // Perform parallel analysis
+      const [portfolioData, githubData] = await Promise.all([
+        portfolioUrl ? webScrapingService.analyzePortfolio(portfolioUrl) : null,
+        githubUrl ? githubService.analyzeGitHubProfile(githubUrl) : null
+      ]);
+
+      // Calculate scores using InvokeLLM + traditional methods (Requirement 2.3)
+      let scores = {
+        codeQuality: githubData ? this.calculateCodeQualityScore(githubData) : 0,
+        projectDepth: this.calculateProjectDepthScore(portfolioData || {}, githubData || {}),
+        portfolioCompleteness: this.calculatePortfolioCompletenessScore(portfolioData || {}, githubData || {})
+      };
+
+      // Enhance scores with InvokeLLM analysis
+      try {
+        if (portfolioData && portfolioData.content) {
+          const aiAnalysis = await invokeLLMService.analyzePortfolioContent(
+            portfolioData.content, 
+            githubData || {}
+          );
+          
+          // Blend AI scores with traditional scores (70% AI, 30% traditional)
+          if (aiAnalysis.codeQuality) {
+            scores.codeQuality = Math.round(aiAnalysis.codeQuality * 0.7 + scores.codeQuality * 0.3);
+          }
+          if (aiAnalysis.projectDepth) {
+            scores.projectDepth = Math.round(aiAnalysis.projectDepth * 0.7 + scores.projectDepth * 0.3);
+          }
+          if (aiAnalysis.portfolioCompleteness) {
+            scores.portfolioCompleteness = Math.round(aiAnalysis.portfolioCompleteness * 0.7 + scores.portfolioCompleteness * 0.3);
+          }
+          
+          // Store AI insights
+          portfolioData.aiInsights = {
+            keyStrengths: aiAnalysis.keyStrengths || [],
+            technicalSkills: aiAnalysis.technicalSkills || [],
+            projectComplexity: aiAnalysis.projectComplexity || 'moderate',
+            overallAssessment: aiAnalysis.overallAssessment || ''
+          };
+        }
+      } catch (error) {
+        console.warn('InvokeLLM analysis failed, using traditional scoring:', error.message);
+      }
+
+      // Calculate overall score
+      scores.overall = Math.round((scores.codeQuality + scores.projectDepth + scores.portfolioCompleteness) / 3);
+
+      // Generate improvement suggestions using InvokeLLM (Requirement 2.4)
+      const improvements = await this.generateImprovementSuggestions(scores, portfolioData || {}, githubData || {});
+
+      // Update analysis with results
+      analysis.scores = scores;
+      analysis.githubData = githubData || {};
+      analysis.portfolioData = portfolioData || {};
+      analysis.improvements = improvements;
+      analysis.status = 'completed';
+      analysis.analyzedAt = new Date();
+
+      await analysis.save();
+
+      // Cleanup resources
+      await webScrapingService.cleanup();
+
+      return {
+        analysisId: analysis._id,
+        scores,
+        githubData: githubData || {},
+        portfolioData: portfolioData || {},
+        improvements,
+        analyzedAt: analysis.analyzedAt
+      };
+
+    } catch (error) {
+      // Update analysis with error
+      try {
+        const analysis = await PortfolioAnalysis.findOne({ candidateId }).sort({ createdAt: -1 });
+        if (analysis) {
+          analysis.status = 'failed';
+          analysis.error = error.message;
+          await analysis.save();
+        }
+      } catch (saveError) {
+        console.error('Failed to save error state:', saveError);
+      }
+
+      throw error;
+    } finally {
+      this.analysisInProgress.delete(candidateId);
+    }
+  }
+
+  /**
+   * Get latest analysis for candidate
+   * @param {string} candidateId - Candidate identifier
+   * @returns {Promise<object|null>} - Latest analysis or null
+   */
+  async getLatestAnalysis(candidateId) {
+    return await PortfolioAnalysis.findLatestForCandidate(candidateId);
+  }
+
+  /**
+   * Get all analyses for candidate
+   * @param {string} candidateId - Candidate identifier
+   * @returns {Promise<Array>} - Array of analyses
+   */
+  async getAllAnalyses(candidateId) {
+    return await PortfolioAnalysis.findAllForCandidate(candidateId);
+  }
+
+  /**
+   * Check if analysis is in progress
+   * @param {string} candidateId - Candidate identifier
+   * @returns {boolean} - Whether analysis is in progress
+   */
+  isAnalysisInProgress(candidateId) {
+    return this.analysisInProgress.has(candidateId);
+  }
+}
+
+export default new PortfolioAnalyzer();
