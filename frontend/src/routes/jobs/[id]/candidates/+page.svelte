@@ -5,7 +5,7 @@
   import ShortlistView from '$lib/components/ShortlistView.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { authStore } from '$lib/stores/auth.js';
-  import { api } from '$lib/services/api.js';
+  import { apiService } from '$lib/services/api.js';
 
   // Get job ID from URL params
   const jobId = $page.params.id;
@@ -26,9 +26,9 @@
   // Load job posting details
   const loadJobPosting = async () => {
     try {
-      const response = await api.get(`/jobs/${jobId}`);
+      const response = await apiService.getJobById(jobId);
       if (response.success) {
-        jobPosting = response.data;
+        jobPosting = response.job;
       } else {
         error = response.message || 'Failed to load job posting';
       }
@@ -42,9 +42,9 @@
   const loadCandidates = async () => {
     try {
       loading = true;
-      const response = await api.get(`/jobs/${jobId}/candidates`);
+      const response = await apiService.getJobCandidates(jobId);
       if (response.success) {
-        candidates = response.data || [];
+        candidates = response.candidates || [];
       } else {
         error = response.message || 'Failed to load candidates';
       }
@@ -60,9 +60,9 @@
   const handleRegenerateShortlist = async () => {
     try {
       generating = true;
-      const response = await api.post(`/jobs/${jobId}/generate-shortlist`);
+      const response = await apiService.generateJobShortlist(jobId);
       if (response.success) {
-        candidates = response.data || [];
+        candidates = response.candidates || [];
       } else {
         error = response.message || 'Failed to generate shortlist';
       }
@@ -77,9 +77,7 @@
   // Handle hiring a candidate
   const handleHireCandidate = async (candidate) => {
     try {
-      const response = await api.post(`/jobs/${jobId}/hire`, {
-        candidateId: candidate._id
-      });
+      const response = await apiService.hireCandidate(jobId, candidate._id);
       
       if (response.success) {
         // Update candidate status locally

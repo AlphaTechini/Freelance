@@ -11,6 +11,7 @@ import userRoutes from './routes/users.js';
 import gigRoutes from './routes/gigs.js';
 import priceRoutes from './routes/prices.js';
 import portfolioRoutes from './routes/portfolio.js';
+import paymentRoutes from './routes/payments.js';
 
 // Load environment variables
 dotenv.config();
@@ -43,7 +44,55 @@ fastify.decorate('authenticate', authenticateToken);
 
 // Health check endpoint
 fastify.get('/health', async (request, reply) => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    services: {}
+  };
+
+  try {
+    // Check database connection
+    const { mongoose } = await import('mongoose');
+    health.services.database = {
+      status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      name: 'MongoDB'
+    };
+
+    // Check external services
+    health.services.github = {
+      status: process.env.GITHUB_TOKEN ? 'configured' : 'not_configured',
+      name: 'GitHub API'
+    };
+
+    health.services.cloudinary = {
+      status: (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) ? 'configured' : 'not_configured',
+      name: 'Cloudinary'
+    };
+
+    health.services.invokellm = {
+      status: process.env.INVOKELLM_API_KEY ? 'configured' : 'not_configured',
+      name: 'InvokeLLM API'
+    };
+
+    // Check if any critical services are down
+    const criticalServices = ['database'];
+    const failedCritical = criticalServices.filter(service => 
+      health.services[service]?.status !== 'connected' && 
+      health.services[service]?.status !== 'configured'
+    );
+
+    if (failedCritical.length > 0) {
+      health.status = 'degraded';
+      health.issues = failedCritical.map(service => `${service} is not available`);
+    }
+
+  } catch (error) {
+    health.status = 'error';
+    health.error = error.message;
+  }
+
+  const statusCode = health.status === 'ok' ? 200 : health.status === 'degraded' ? 503 : 500;
+  return reply.code(statusCode).send(health);
 });
 
 // Register API routes
@@ -52,10 +101,15 @@ await fastify.register(userRoutes, { prefix: '/api' });
 await fastify.register(gigRoutes, { prefix: '/api' });
 await fastify.register(priceRoutes, { prefix: '/api' });
 await fastify.register(portfolioRoutes, { prefix: '/api' });
+await fastify.register(paymentRoutes, { prefix: '/api' });
 
 // Import and register job routes
 import jobRoutes from './routes/jobs.js';
 await fastify.register(jobRoutes, { prefix: '/api' });
+
+// Import and register candidate routes
+import candidateRoutes from './routes/candidates.js';
+await fastify.register(candidateRoutes, { prefix: '/api' });
 
 // Test endpoint
 fastify.get('/api/test', async (request, reply) => {

@@ -2,7 +2,7 @@
   import { authStore, signOutUser } from '$lib/stores/auth.js';
   import { walletStore } from '$lib/services/wallet.js';
   import { goto } from '$app/navigation';
-  import Button from './ui/Button.svelte';
+  import { Button, ThemeToggle } from './ui';
   import WalletConnect from './WalletConnect.svelte';
 
   let mobileMenuOpen = $state(false);
@@ -31,42 +31,64 @@
   }
 </script>
 
-<nav class="bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
-  <div class="container mx-auto px-4">
+<nav class="navbar">
+  <div class="container">
     <div class="flex items-center justify-between h-16">
       <!-- Logo -->
       <div class="flex items-center">
-        <a href="/" class="text-2xl font-bold text-orange-500 hover:text-orange-600 transition-colors">
-          CryptoGigs
+        <a href="/" class="logo">
+          Kiro
         </a>
       </div>
 
       <!-- Desktop Navigation -->
-      <div class="hidden md:flex items-center space-x-6">
-        <a href="/gigs" class="text-gray-700 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400 transition-colors">
-          Browse Gigs
-        </a>
-        
-        {#if $authStore.user}
-          <a href="/orders" class="text-gray-700 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400 transition-colors">
+      <div class="hidden md:flex items-center gap-6">
+        {#if $authStore.user?.role === 'recruiter'}
+          <a href="/dashboard/recruiter" class="nav-link">
+            Dashboard
+          </a>
+          <a href="/dashboard/recruiter/jobs" class="nav-link">
+            Jobs
+          </a>
+          <a href="/dashboard/recruiter/candidates" class="nav-link">
+            Candidates
+          </a>
+          <a href="/dashboard/recruiter/payments" class="nav-link">
+            Payments
+          </a>
+        {:else if $authStore.user}
+          <a href="/dashboard/candidate" class="nav-link">
+            Dashboard
+          </a>
+          <a href="/gigs" class="nav-link">
+            Browse Gigs
+          </a>
+          <a href="/orders" class="nav-link">
             Orders
           </a>
-          <a href="/messages" class="text-gray-700 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400 transition-colors">
+          <a href="/messages" class="nav-link">
             Messages
+          </a>
+        {:else}
+          <a href="/gigs" class="nav-link">
+            Browse Gigs
           </a>
         {/if}
       </div>
 
       <!-- Right Side Actions -->
-      <div class="hidden md:flex items-center space-x-4">
+      <div class="hidden md:flex items-center gap-4">
+        <!-- Theme Toggle -->
+        <ThemeToggle />
+        
         {#if $authStore.user}
           <!-- Wallet Connection -->
           {#if !$walletStore.isConnected}
             <WalletConnect showBalance={false} variant="secondary" size="sm" />
           {:else}
-            <div class="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg">
-              <p class="text-xs text-gray-600 dark:text-gray-400">Wallet</p>
-              <p class="font-mono text-xs font-semibold text-gray-900 dark:text-white">
+            <div class="wallet-display">
+              <p class="caption">Wallet</p>
+              <p class="wallet-address">
                 {formatAddress($walletStore.address)}
               </p>
             </div>
@@ -76,9 +98,9 @@
           <div class="relative">
             <button
               onclick={toggleUserMenu}
-              class="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400 transition-colors"
+              class="user-menu-trigger"
             >
-              <div class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
+              <div class="user-avatar">
                 {$authStore.user.email?.[0]?.toUpperCase() || 'U'}
               </div>
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,20 +109,29 @@
             </button>
 
             {#if userMenuOpen}
-              <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2">
-                <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+              <div class="user-menu slide-in-down">
+                <a href="/profile" class="user-menu-item">
                   Profile
                 </a>
-                <a href="/wallet" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <a href="/wallet" class="user-menu-item">
                   Wallet
                 </a>
-                <a href="/gigs/create" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                  Create Gig
-                </a>
-                <hr class="my-2 border-gray-200 dark:border-gray-700" />
+                {#if $authStore.user?.role === 'recruiter'}
+                  <a href="/dashboard/recruiter/settings" class="user-menu-item">
+                    Settings
+                  </a>
+                  <a href="/dashboard/recruiter/jobs/create" class="user-menu-item">
+                    Create Job
+                  </a>
+                {:else}
+                  <a href="/gigs/create" class="user-menu-item">
+                    Create Gig
+                  </a>
+                {/if}
+                <hr class="menu-divider" />
                 <button
                   onclick={handleSignOut}
-                  class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  class="user-menu-item text-error w-full text-left"
                 >
                   Sign Out
                 </button>
@@ -138,25 +169,50 @@
     {#if mobileMenuOpen}
       <div class="md:hidden py-4 border-t border-gray-200 dark:border-gray-800">
         <div class="space-y-2">
-          <a href="/gigs" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
-            Browse Gigs
-          </a>
-          
-          {#if $authStore.user}
+          {#if $authStore.user?.role === 'recruiter'}
+            <a href="/dashboard/recruiter" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Dashboard
+            </a>
+            <a href="/dashboard/recruiter/jobs" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Jobs
+            </a>
+            <a href="/dashboard/recruiter/candidates" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Candidates
+            </a>
+            <a href="/dashboard/recruiter/payments" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Payments
+            </a>
+            <a href="/dashboard/recruiter/settings" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Settings
+            </a>
+          {:else if $authStore.user}
+            <a href="/dashboard/candidate" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Dashboard
+            </a>
+            <a href="/gigs" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Browse Gigs
+            </a>
             <a href="/orders" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
               Orders
             </a>
             <a href="/messages" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
               Messages
             </a>
+            <a href="/gigs/create" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Create Gig
+            </a>
+          {:else}
+            <a href="/gigs" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+              Browse Gigs
+            </a>
+          {/if}
+          
+          {#if $authStore.user}
             <a href="/profile" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
               Profile
             </a>
             <a href="/wallet" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
               Wallet
-            </a>
-            <a href="/gigs/create" class="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
-              Create Gig
             </a>
             
             <div class="px-4 py-2">
@@ -193,3 +249,124 @@
     }
   }}
 />
+
+<style>
+  .navbar {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(8px);
+  }
+
+  .logo {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .logo:hover {
+    color: var(--accent-hover);
+  }
+
+  .nav-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .nav-link:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+  }
+
+  .wallet-display {
+    background: var(--bg-secondary);
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+
+  .wallet-address {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .user-menu-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    font-family: inherit;
+  }
+
+  .user-menu-trigger:hover {
+    color: var(--accent-color);
+  }
+
+  .user-avatar {
+    width: 2rem;
+    height: 2rem;
+    background: var(--accent-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  .user-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 0.5rem;
+    width: 12rem;
+    background: var(--bg-card);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0;
+    z-index: 50;
+  }
+
+  .user-menu-item {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .user-menu-item:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .menu-divider {
+    margin: 0.5rem 0;
+    border: none;
+    border-top: 1px solid var(--border-color);
+  }
+
+  /* Mobile styles are handled by existing Tailwind classes */
+</style>

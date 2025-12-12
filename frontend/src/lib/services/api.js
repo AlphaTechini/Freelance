@@ -389,6 +389,132 @@ class ApiService {
   async getAnalysisStatus(candidateId) {
     return this.get(`/portfolio/status/${candidateId}`);
   }
+
+  // ===== Job Posting Methods =====
+
+  // Create job posting
+  async createJobPosting(jobData) {
+    return this.post('/jobs', jobData);
+  }
+
+  // Get all jobs with filters
+  async getJobs(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.roleType) params.append('roleType', filters.roleType);
+    if (filters.skills) params.append('skills', filters.skills);
+    if (filters.location) params.append('location', filters.location);
+    if (filters.page) params.append('page', filters.page);
+    if (filters.limit) params.append('limit', filters.limit);
+    
+    return this.get(`/jobs?${params.toString()}`);
+  }
+
+  // Get job by ID
+  async getJobById(jobId) {
+    return this.get(`/jobs/${jobId}`);
+  }
+
+  // Get candidates for a job (shortlist)
+  async getJobCandidates(jobId) {
+    return this.get(`/jobs/${jobId}/candidates`);
+  }
+
+  // Generate shortlist for job
+  async generateJobShortlist(jobId) {
+    return this.post(`/jobs/${jobId}/generate-shortlist`);
+  }
+
+  // ===== Hiring Methods =====
+
+  // Hire a candidate
+  async hireCandidate(jobId, candidateId, options = {}) {
+    return this.post(`/jobs/${jobId}/hire`, {
+      candidateId,
+      notes: options.notes || '',
+      sendEmail: options.sendEmail !== false
+    });
+  }
+
+  // Generate mailto link for candidate
+  async getCandidateMailtoLink(jobId, candidateId) {
+    return this.get(`/jobs/${jobId}/candidates/${candidateId}/mailto`);
+  }
+
+  // Update candidate status in shortlist
+  async updateCandidateStatus(jobId, candidateId, status, notes = '') {
+    return this.put(`/jobs/${jobId}/shortlist/${candidateId}`, {
+      status,
+      notes
+    });
+  }
+
+  // Get match explanation for candidate
+  async getMatchExplanation(jobId, candidateId) {
+    return this.get(`/jobs/${jobId}/candidates/${candidateId}/match-explanation`);
+  }
+
+  // Get job analytics
+  async getJobAnalytics(jobId) {
+    return this.get(`/jobs/${jobId}/analytics`);
+  }
+
+  // ===== Payment Methods =====
+
+  // Send payment to candidate
+  async sendPayment(paymentData) {
+    return this.post('/payments/send', paymentData);
+  }
+
+  // Get payment history
+  async getPaymentHistory(options = {}) {
+    const params = new URLSearchParams();
+    if (options.type) params.append('type', options.type);
+    if (options.page) params.append('page', options.page);
+    if (options.limit) params.append('limit', options.limit);
+    
+    const queryString = params.toString();
+    return this.get(`/payments/history${queryString ? '?' + queryString : ''}`);
+  }
+
+  // Get user earnings
+  async getUserEarnings() {
+    return this.get('/payments/earnings');
+  }
+
+  // Get payment statistics
+  async getPaymentStats() {
+    return this.get('/payments/stats');
+  }
+
+  // Get exchange rates
+  async getExchangeRates() {
+    return this.get('/payments/rates');
+  }
+
+  // Verify payment
+  async verifyPayment(transactionId) {
+    return this.post('/payments/verify', { transactionId });
+  }
+
+  // ===== Candidate Search Methods =====
+
+  // Search candidates
+  async searchCandidates(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.skills) params.append('skills', filters.skills);
+    if (filters.educationLevel && filters.educationLevel !== 'all') params.append('educationLevel', filters.educationLevel);
+    if (filters.minExperience) params.append('minExperience', filters.minExperience);
+    if (filters.availability && filters.availability !== 'all') params.append('availability', filters.availability);
+    if (filters.search) params.append('search', filters.search);
+    
+    return this.get(`/candidates/search?${params.toString()}`);
+  }
+
+  // Get candidate profile by ID
+  async getCandidateProfile(candidateId) {
+    return this.get(`/candidates/${candidateId}`);
+  }
 }
 
 // Create and export a singleton instance

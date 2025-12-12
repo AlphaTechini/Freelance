@@ -1,19 +1,18 @@
 <script>
   let {
-    type = 'text',
     value = $bindable(''),
     placeholder = '',
     label = '',
     error = '',
     disabled = false,
     required = false,
+    rows = 4,
     class: className = '',
     ...rest
   } = $props();
 
-  // Use the design system classes from app.css
-  const getInputClasses = () => {
-    let classes = 'form-input';
+  const getTextareaClasses = () => {
+    let classes = 'form-textarea';
     
     if (error) {
       classes += ' !border-red-500 focus:!border-red-500 focus:!shadow-red-100';
@@ -33,15 +32,15 @@
     </label>
   {/if}
 
-  <input
-    {type}
+  <textarea
     {placeholder}
     {disabled}
     {required}
+    {rows}
     bind:value
-    class={getInputClasses()}
+    class={getTextareaClasses()}
     {...rest}
-  />
+  ></textarea>
 
   {#if error}
     <div class="form-error">{error}</div>

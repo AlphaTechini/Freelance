@@ -6,6 +6,7 @@
     onHire = () => {},
     onEmail = () => {},
     onViewProfile = () => {},
+    onPay = () => {},
     showActions = true
   } = $props();
 
@@ -29,17 +30,79 @@
   };
 
   // Handle email click
-  const handleEmail = () => {
-    const subject = encodeURIComponent(`Job Opportunity - ${candidate.name}`);
-    const body = encodeURIComponent(`Hi ${candidate.name},\n\nI found your profile interesting and would like to discuss a potential opportunity with you.\n\nBest regards`);
-    const mailtoLink = `mailto:${candidate.email}?subject=${subject}&body=${body}`;
-    window.open(mailtoLink);
-    onEmail(candidate);
+  const handleEmail = async () => {
+    try {
+      // Get mailto link from backend if we have job context
+      if (candidate.jobId) {
+        const { apiService } = await import('$lib/services/api.js');
+        const token = localStorage.getItem('token');
+        if (token) {
+          apiService.setToken(token);
+        }
+        
+        try {
+          const data = await apiService.getCandidateMailtoLink(candidate.jobId, candidate._id);
+          window.open(data.mailtoLink);
+        } catch (apiError) {
+          console.warn('Failed to get mailto link from API, using fallback:', apiError);
+          // Fallback to simple mailto
+          const subject = encodeURIComponent(`Job Opportunity - ${candidate.name}`);
+          const body = encodeURIComponent(`Hi ${candidate.name},\n\nI found your profile interesting and would like to discuss a potential opportunity with you.\n\nBest regards`);
+          const mailtoLink = `mailto:${candidate.email}?subject=${subject}&body=${body}`;
+          window.open(mailtoLink);
+        }
+      } else {
+        // Simple mailto without job context
+        const subject = encodeURIComponent(`Job Opportunity - ${candidate.name}`);
+        const body = encodeURIComponent(`Hi ${candidate.name},\n\nI found your profile interesting and would like to discuss a potential opportunity with you.\n\nBest regards`);
+        const mailtoLink = `mailto:${candidate.email}?subject=${subject}&body=${body}`;
+        window.open(mailtoLink);
+      }
+      onEmail(candidate);
+    } catch (error) {
+      console.error('Failed to generate email link:', error);
+      // Fallback to simple mailto
+      const subject = encodeURIComponent(`Job Opportunity - ${candidate.name}`);
+      const body = encodeURIComponent(`Hi ${candidate.name},\n\nI found your profile interesting and would like to discuss a potential opportunity with you.\n\nBest regards`);
+      const mailtoLink = `mailto:${candidate.email}?subject=${subject}&body=${body}`;
+      window.open(mailtoLink);
+      onEmail(candidate);
+    }
   };
 
   // Handle hire click
-  const handleHire = () => {
-    onHire(candidate);
+  const handleHire = async () => {
+    try {
+      if (candidate.jobId) {
+        const { apiService } = await import('$lib/services/api.js');
+        const token = localStorage.getItem('token');
+        if (token) {
+          apiService.setToken(token);
+        }
+
+        const data = await apiService.hireCandidate(candidate.jobId, candidate._id, {
+          sendEmail: true
+        });
+
+        alert(data.emailSent ? 
+          'Candidate hired successfully! Notification email sent.' : 
+          'Candidate hired successfully!'
+        );
+        
+        // Update candidate status locally
+        candidate.status = 'hired';
+      }
+      onHire(candidate);
+    } catch (error) {
+      console.error('Failed to hire candidate:', error);
+      alert(`Failed to hire candidate: ${error.message || 'Please try again.'}`);
+      onHire(candidate);
+    }
+  };
+
+  // Handle pay click
+  const handlePay = () => {
+    onPay(candidate);
   };
 
   // Handle view profile click
@@ -176,6 +239,25 @@
     {/if}
   </div>
 
+  <!-- Status Badge -->
+  {#if candidate.status && candidate.status !== 'shortlisted'}
+    <div class="mb-4">
+      <span class={`px-3 py-1 rounded-full text-sm font-medium ${
+        candidate.status === 'hired' ? 'bg-green-100 text-green-800' :
+        candidate.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+        candidate.status === 'interviewed' ? 'bg-purple-100 text-purple-800' :
+        candidate.status === 'rejected' ? 'bg-red-100 text-red-800' :
+        'bg-gray-100 text-gray-800'
+      }`}>
+        {candidate.status === 'hired' ? '✓ Hired' :
+         candidate.status === 'contacted' ? '📧 Contacted' :
+         candidate.status === 'interviewed' ? '🎯 Interviewed' :
+         candidate.status === 'rejected' ? '❌ Rejected' :
+         candidate.status}
+      </span>
+    </div>
+  {/if}
+
   <!-- Action Buttons -->
   {#if showActions}
     <div class="flex items-center gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -193,8 +275,9 @@
         size="sm" 
         onclick={handleHire}
         class="flex-1"
+        disabled={candidate.status === 'hired'}
       >
-        Hire
+        {candidate.status === 'hired' ? 'Hired' : 'Hire'}
       </Button>
       
       <Button 
@@ -204,6 +287,15 @@
         class="flex-1"
       >
         Email
+      </Button>
+      
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onclick={handlePay}
+        class="flex-1"
+      >
+        Pay
       </Button>
     </div>
   {/if}

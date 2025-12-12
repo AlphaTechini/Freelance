@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { initializeAuth } from '$lib/stores/auth.js';
   import { checkWalletConnection } from '$lib/services/wallet.js';
+  import { theme } from '$lib/stores/theme.js';
   import Navbar from '$lib/components/Navbar.svelte';
   import '../app.css';
 
@@ -10,6 +11,9 @@
   let isAuthPage = $derived($page.url.pathname.startsWith('/auth'));
 
   onMount(async () => {
+    // Initialize theme system
+    theme.init();
+    
     // Initialize Firebase Auth
     await initializeAuth();
     
@@ -18,7 +22,7 @@
   });
 </script>
 
-<div class="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white">
+<div class="min-h-screen" style="background-color: var(--bg-primary); color: var(--text-primary);">
   {#if !isAuthPage}
     <Navbar />
   {/if}
@@ -27,9 +31,3 @@
     <slot />
   </main>
 </div>
-
-<style>
-  :global(html) {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-</style>

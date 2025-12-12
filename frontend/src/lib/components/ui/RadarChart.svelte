@@ -7,8 +7,8 @@
   export let height = 300;
   export let maxValue = 100;
   export let levels = 5;
-  export let strokeColor = '#6366f1';
-  export let fillColor = '#6366f1';
+  export let strokeColor = '#ff6b35';
+  export let fillColor = '#ff6b35';
   export let fillOpacity = 0.2;
   export let strokeWidth = 2;
   export let dotRadius = 4;
@@ -68,10 +68,10 @@
   });
   
   function getScoreColor(value) {
-    if (value >= 80) return '#10b981'; // green
-    if (value >= 60) return '#f59e0b'; // yellow
-    if (value >= 40) return '#f97316'; // orange
-    return '#ef4444'; // red
+    if (value >= 80) return 'var(--success-color)'; // green
+    if (value >= 60) return 'var(--warning-color)'; // yellow
+    if (value >= 40) return 'var(--accent-color)'; // orange
+    return 'var(--error-color)'; // red
   }
 </script>
 
@@ -84,9 +84,8 @@
         cy={center.y}
         r={levelRadius}
         fill="none"
-        stroke="#e5e7eb"
+        stroke="var(--border-color)"
         stroke-width="1"
-        class="dark:stroke-gray-600"
       />
     {/each}
     
@@ -96,8 +95,7 @@
         x={center.x + 5}
         y={level.y}
         font-size="10"
-        fill="#9ca3af"
-        class="dark:fill-gray-400"
+        fill="var(--text-secondary)"
       >
         {level.value}
       </text>
@@ -110,9 +108,8 @@
         y1={axis.y1}
         x2={axis.x2}
         y2={axis.y2}
-        stroke="#e5e7eb"
+        stroke="var(--border-color)"
         stroke-width="1"
-        class="dark:stroke-gray-600"
       />
     {/each}
     
@@ -148,8 +145,7 @@
         text-anchor={axis.anchor}
         font-size="12"
         font-weight="500"
-        fill="#374151"
-        class="dark:fill-gray-300"
+        fill="var(--text-primary)"
         dominant-baseline="middle"
       >
         {axis.label}
@@ -165,7 +161,7 @@
           class="w-3 h-3 rounded-full border-2 border-white"
           style="background-color: {getScoreColor(item.value)}"
         ></div>
-        <span class="text-gray-700 dark:text-gray-300">
+        <span style="color: var(--text-primary)">
           {item.label}: {item.value}
         </span>
       </div>

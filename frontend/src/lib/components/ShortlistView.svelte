@@ -1,6 +1,7 @@
 <script>
   import CandidateCard from './CandidateCard.svelte';
   import MatchExplanation from './MatchExplanation.svelte';
+  import PaymentModal from './PaymentModal.svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
   
@@ -13,6 +14,10 @@
     onViewProfile = () => {},
     onRegenerateShortlist = () => {}
   } = $props();
+
+  // Payment modal state
+  let showPaymentModal = $state(false);
+  let selectedCandidate = $state(null);
 
   // Filter and sort state
   let searchTerm = $state('');
@@ -134,6 +139,26 @@
   // Handle view profile
   const handleViewProfile = (candidate) => {
     onViewProfile(candidate);
+  };
+
+  // Handle pay candidate
+  const handlePay = (candidate) => {
+    selectedCandidate = candidate;
+    showPaymentModal = true;
+  };
+
+  // Handle payment completion
+  const handlePaymentComplete = (paymentResult) => {
+    console.log('Payment completed:', paymentResult);
+    showPaymentModal = false;
+    selectedCandidate = null;
+    // Could add a success notification here
+  };
+
+  // Handle payment modal close
+  const handlePaymentClose = () => {
+    showPaymentModal = false;
+    selectedCandidate = null;
   };
 
   // Clear all filters
@@ -317,6 +342,7 @@
             onHire={handleHire}
             onEmail={handleEmail}
             onViewProfile={handleViewProfile}
+            onPay={handlePay}
           />
 
           <!-- Match Details Toggle -->
@@ -353,3 +379,12 @@
   <!-- Bulk Actions (if multiple candidates selected) -->
   <!-- This could be added in a future enhancement -->
 </div>
+
+<!-- Payment Modal -->
+<PaymentModal
+  isOpen={showPaymentModal}
+  candidate={selectedCandidate}
+  jobId={jobPosting._id}
+  onClose={handlePaymentClose}
+  onPaymentComplete={handlePaymentComplete}
+/>

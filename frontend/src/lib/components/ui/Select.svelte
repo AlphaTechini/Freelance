@@ -1,8 +1,8 @@
 <script>
   let {
-    type = 'text',
     value = $bindable(''),
-    placeholder = '',
+    options = [],
+    placeholder = 'Select an option...',
     label = '',
     error = '',
     disabled = false,
@@ -11,9 +11,8 @@
     ...rest
   } = $props();
 
-  // Use the design system classes from app.css
-  const getInputClasses = () => {
-    let classes = 'form-input';
+  const getSelectClasses = () => {
+    let classes = 'form-select';
     
     if (error) {
       classes += ' !border-red-500 focus:!border-red-500 focus:!shadow-red-100';
@@ -33,15 +32,25 @@
     </label>
   {/if}
 
-  <input
-    {type}
-    {placeholder}
+  <select
     {disabled}
     {required}
     bind:value
-    class={getInputClasses()}
+    class={getSelectClasses()}
     {...rest}
-  />
+  >
+    {#if placeholder}
+      <option value="" disabled selected={!value}>{placeholder}</option>
+    {/if}
+    
+    {#each options as option}
+      {#if typeof option === 'string'}
+        <option value={option}>{option}</option>
+      {:else}
+        <option value={option.value}>{option.label}</option>
+      {/if}
+    {/each}
+  </select>
 
   {#if error}
     <div class="form-error">{error}</div>

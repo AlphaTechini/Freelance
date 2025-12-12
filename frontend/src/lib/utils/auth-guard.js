@@ -73,3 +73,52 @@ export function redirectIfAuthenticated(redirectTo = '/') {
   }
   return false;
 }
+
+/**
+ * Check if user has a specific role
+ * @param {string} role - Required role
+ * @returns {boolean} True if user has the role
+ */
+export function hasRole(role) {
+  const auth = get(authStore);
+  return auth.user?.role === role;
+}
+
+/**
+ * Require specific role - redirect if user doesn't have the role
+ * @param {string} role - Required role
+ * @param {string} redirectTo - Path to redirect to if role check fails
+ */
+export function requireRole(role, redirectTo = '/') {
+  if (!requireAuth()) {
+    return false;
+  }
+  
+  if (!hasRole(role)) {
+    goto(redirectTo);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Get appropriate dashboard path based on user role
+ * @returns {string} Dashboard path for the user's role
+ */
+export function getDashboardPath() {
+  const auth = get(authStore);
+  const role = auth.user?.role;
+  
+  switch (role) {
+    case 'recruiter':
+      return '/dashboard/recruiter';
+    case 'freelancer':
+    case 'student':
+    case 'graduate':
+    case 'phd':
+      return '/dashboard/candidate';
+    default:
+      return '/';
+  }
+}

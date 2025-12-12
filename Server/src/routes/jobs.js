@@ -214,326 +214,6 @@ router.get('/jobs/:id', async (request, reply) => {
   }
 });
 
-// Get jobs by recruiter
-router.get('/jobs/recruiter/:recruiterId', {
-  preHandler: [authenticateToken]
-}, async (request, reply) => {
-  try {
-    const { recruiterId } = request.params;
-    const { user } = request;
-
-    // Verify access (recruiter can only see their own jobs, or admin)
-    if (user.id !== recruiterId && user.role !== 'admin') {
-      return reply.code(403).send({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    const jobs = await JobPosting.findByRecruiter(recruiterId)
-      .populate('shortlist.candidateId', 'name skills experienceYears educationLevel');
-
-    reply.send({
-      success: true,
-      jobs
-    });
-
-  } catch (error) {
-    console.error('Recruiter jobs fetch error:', error);
-    reply.code(500).send({
-      success: false,
-      message: 'Failed to fetch recruiter jobs'
-    });
-  }
-});
-
-// Update job posting
-router.put('/jobs/:id', {
-  preHandler: [authenticateToken],
-  schema: {
-    body: jobPostingSchema
-  }
-}, async (request, reply) => {
-  try {
-    const { user } = request;
-    const job = await JobPosting.findById(request.params.id);
-
-    if (!job) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Job not found'
-      });
-    }
-
-    // Verify ownership
-    if (job.recruiterId.toString() !== user.id && user.role !== 'admin') {
-      return reply.code(403).send({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    // Update job
-    Object.assign(job, request.body);
-    await job.save();
-
-    // Regenerate shortlist if requirements changed
-    if (request.body.requiredSkills || request.body.minExperience || request.body.educationPreference) {
-      try {
-        const newShortlist = await jobMatchingService.generateShortlist(job, job.maxCandidates);
-        
-        // Clear existing shortlist and add new candidates
-        job.shortlist = [];
-        for (const candidate of newShortlist) {
-          await job.addToShortlist({
-            candidateId: candidate._id,
-            matchScore: candidate.matchScore,
-            matchDetails: candidate.matchDetails,
-            matchExplanation: candidate.matchExplanation
-          });
-        }
-      } catch (error) {
-        console.error('Shortlist regeneration failed:', error);
-      }
-    }
-
-    reply.send({
-      success: true,
-      job: job.toObject(),
-      message: 'Job updated successfully'
-    });
-
-  } catch (error) {
-    console.error('Job update error:', error);
-    reply.code(500).send({
-      success: false,
-      message: 'Failed to update job'
-    });
-  }
-});
-
-// Delete job posting
-router.delete('/jobs/:id', {
-  preHandler: [authenticateToken]
-}, async (request, reply) => {
-  try {
-    const { user } = request;
-    const job = await JobPosting.findById(request.params.id);
-
-    if (!job) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Job not found'
-      });
-    }
-
-    // Verify ownership
-    if (job.recruiterId.toString() !== user.id && user.role !== 'admin') {
-      return reply.code(403).send({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    await JobPosting.findByIdAndDelete(request.params.id);
-
-    reply.send({
-      success: true,
-      message: 'Job deleted successfully'
-    });
-
-  } catch (error) {
-    console.error('Job deletion error:', error);
-    reply.code(500).send({
-      success: false,
-      message: 'Failed to delete job'
-    });
-  }
-});
-
-// Generate/regenerate shortlist for job using new AI matching engine
-router.post('/jobs/:id/shortlist', {
-  preHandler: [authenticateToken],
-  schema: {
-    body: {
-      type: 'object',
-      properties: {
-        maxCandidates: { type: 'number', minimum: 1, maximum: 50 },
-        regenerate: { type: 'boolean', default: false }
-      }
-    }
-  }
-}, async (request, reply) => {
-  try {
-    const { user } = request;
-    const { maxCandidates, regenerate = false } = request.body || {};
-    
-    const job = await JobPosting.findById(request.params.id);
-
-    if (!job) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Job not found'
-      });
-    }
-
-    // Verify ownership
-    if (job.recruiterId.toString() !== user.id && user.role !== 'admin') {
-      return reply.code(403).send({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    // Use the new shortlist generation service (Requirements 4.1, 4.3)
-    const shortlistResult = await jobMatchingService.createShortlist(request.params.id, {
-      maxCandidates: maxCandidates || job.maxCandidates,
-      regenerate
-    });
-
-    reply.send({
-      success: true,
-      shortlist: shortlistResult.shortlist,
-      analytics: {
-        totalCandidates: shortlistResult.totalCandidates,
-        averageMatchScore: shortlistResult.averageMatchScore,
-        topMatchScore: shortlistResult.topMatchScore,
-        generatedAt: shortlistResult.generatedAt
-      },
-      message: 'Shortlist generated successfully using AI matching engine'
-    });
-
-  } catch (error) {
-    console.error('Shortlist generation error:', error);
-    reply.code(500).send({
-      success: false,
-      message: `Failed to generate shortlist: ${error.message}`
-    });
-  }
-});
-
-// Update candidate status in shortlist
-router.put('/jobs/:id/shortlist/:candidateId', {
-  preHandler: [authenticateToken],
-  schema: {
-    body: {
-      type: 'object',
-      required: ['status'],
-      properties: {
-        status: { 
-          type: 'string', 
-          enum: ['shortlisted', 'contacted', 'interviewed', 'hired', 'rejected'] 
-        },
-        notes: { type: 'string', maxLength: 1000 }
-      }
-    }
-  }
-}, async (request, reply) => {
-  try {
-    const { user } = request;
-    const { status, notes } = request.body;
-    const job = await JobPosting.findById(request.params.id);
-
-    if (!job) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Job not found'
-      });
-    }
-
-    // Verify ownership
-    if (job.recruiterId.toString() !== user.id && user.role !== 'admin') {
-      return reply.code(403).send({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    await job.updateCandidateStatus(request.params.candidateId, status, notes);
-
-    reply.send({
-      success: true,
-      message: 'Candidate status updated successfully'
-    });
-
-  } catch (error) {
-    console.error('Candidate status update error:', error);
-    reply.code(500).send({
-      success: false,
-      message: 'Failed to update candidate status'
-    });
-  }
-});
-
-// Get match explanation for specific candidate (Requirements 4.5)
-router.get('/jobs/:id/candidates/:candidateId/match-explanation', {
-  preHandler: [authenticateToken]
-}, async (request, reply) => {
-  try {
-    const { user } = request;
-    const job = await JobPosting.findById(request.params.id);
-
-    if (!job) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Job not found'
-      });
-    }
-
-    // Verify ownership
-    if (job.recruiterId.toString() !== user.id && user.role !== 'admin') {
-      return reply.code(403).send({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    // Find candidate in shortlist
-    const candidateInShortlist = job.shortlist.find(
-      item => item.candidateId.toString() === request.params.candidateId
-    );
-
-    if (!candidateInShortlist) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Candidate not found in shortlist'
-      });
-    }
-
-    // Get full candidate profile
-    const CandidateProfile = (await import('../models/CandidateProfile.js')).default;
-    const candidate = await CandidateProfile.findById(request.params.candidateId);
-
-    if (!candidate) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Candidate profile not found'
-      });
-    }
-
-    // Generate detailed match explanation
-    const explanation = await jobMatchingService.buildMatchExplanation(
-      candidate,
-      job,
-      candidateInShortlist.matchDetails || { overallScore: candidateInShortlist.matchScore }
-    );
-
-    reply.send({
-      success: true,
-      explanation,
-      matchScore: candidateInShortlist.matchScore,
-      matchDetails: candidateInShortlist.matchDetails
-    });
-
-  } catch (error) {
-    console.error('Match explanation error:', error);
-    reply.code(500).send({
-      success: false,
-      message: 'Failed to generate match explanation'
-    });
-  }
-});
-
 // Get candidates for a job (shortlist)
 router.get('/jobs/:id/candidates', {
   preHandler: [authenticateToken]
@@ -569,12 +249,13 @@ router.get('/jobs/:id/candidates', {
       matchExplanation: item.matchExplanation,
       status: item.status,
       notes: item.notes,
-      addedAt: item.addedAt
+      addedAt: item.addedAt,
+      jobId: job._id // Add job ID for frontend use
     }));
 
     reply.send({
       success: true,
-      data: candidates
+      candidates: candidates
     });
 
   } catch (error) {
@@ -586,66 +267,7 @@ router.get('/jobs/:id/candidates', {
   }
 });
 
-// Generate shortlist (alternative endpoint for frontend)
-router.post('/jobs/:id/generate-shortlist', {
-  preHandler: [authenticateToken]
-}, async (request, reply) => {
-  try {
-    const { user } = request;
-    const job = await JobPosting.findById(request.params.id);
-
-    if (!job) {
-      return reply.code(404).send({
-        success: false,
-        message: 'Job not found'
-      });
-    }
-
-    // Verify ownership
-    if (job.recruiterId.toString() !== user.id && user.role !== 'admin') {
-      return reply.code(403).send({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    // Generate new shortlist
-    const shortlistResult = await jobMatchingService.createShortlist(request.params.id, {
-      maxCandidates: job.maxCandidates,
-      regenerate: true
-    });
-
-    // Format candidates with match data
-    const candidates = shortlistResult.shortlist.map(item => ({
-      ...item.candidateId,
-      matchScore: item.matchScore,
-      matchDetails: item.matchDetails,
-      matchExplanation: item.matchExplanation,
-      status: item.status || 'shortlisted',
-      addedAt: item.addedAt
-    }));
-
-    reply.send({
-      success: true,
-      data: candidates,
-      analytics: {
-        totalCandidates: shortlistResult.totalCandidates,
-        averageMatchScore: shortlistResult.averageMatchScore,
-        topMatchScore: shortlistResult.topMatchScore,
-        generatedAt: shortlistResult.generatedAt
-      }
-    });
-
-  } catch (error) {
-    console.error('Shortlist generation error:', error);
-    reply.code(500).send({
-      success: false,
-      message: `Failed to generate shortlist: ${error.message}`
-    });
-  }
-});
-
-// Hire a candidate
+// Hire a candidate (Requirements 5.1, 5.2, 5.3)
 router.post('/jobs/:id/hire', {
   preHandler: [authenticateToken],
   schema: {
@@ -700,7 +322,8 @@ router.post('/jobs/:id/hire', {
       });
     }
 
-    // Send automated hiring notification email
+    // Send automated hiring notification email (Requirements 5.3)
+    let emailSent = false;
     if (sendEmail && candidate && candidateUser && candidateUser.email) {
       try {
         const emailService = (await import('../services/emailService.js')).default;
@@ -712,6 +335,7 @@ router.post('/jobs/:id/hire', {
           job,
           job.recruiterId
         );
+        emailSent = true;
         console.log(`Hiring notification sent to ${candidateUser.email}`);
       } catch (emailError) {
         console.error('Failed to send hiring notification:', emailError);
@@ -722,7 +346,7 @@ router.post('/jobs/:id/hire', {
     reply.send({
       success: true,
       message: 'Candidate hired successfully',
-      emailSent: sendEmail && candidateUser && candidateUser.email ? true : false
+      emailSent
     });
 
   } catch (error) {
@@ -734,7 +358,7 @@ router.post('/jobs/:id/hire', {
   }
 });
 
-// Generate mailto link for candidate
+// Generate mailto link for candidate (Requirements 5.4, 5.5)
 router.get('/jobs/:id/candidates/:candidateId/mailto', {
   preHandler: [authenticateToken]
 }, async (request, reply) => {
@@ -758,10 +382,10 @@ router.get('/jobs/:id/candidates/:candidateId/mailto', {
     }
 
     // Get candidate details
-    const CandidateProfault;
-    const User = (await;
+    const CandidateProfile = (await import('../models/CandidateProfile.js')).default;
+    const User = (await import('../models/User.js')).default;
     
-    const candidate
+    const candidate = await CandidateProfile.findById(request.params.candidateId);
     if (!candidate) {
       return reply.code(404).send({
         success: false,
@@ -769,94 +393,102 @@ router.get('/jobs/:id/candidates/:candidateId/mailto', {
       });
     }
 
-    co
-
-        { userna,
-        { walletAddr}
+    const candidateUser = await User.findOne({ 
+      $or: [
+        { username: candidate.username },
+        { walletAddress: candidate.walletAddress }
       ]
     });
 
-    if (!candidateU
+    if (!candidateUser || !candidateUser.email) {
       return reply.code(404).send({
         success: false,
-        message: 'Cand'
+        message: 'Candidate email not found'
       });
     }
 
-   lto link
+    // Generate mailto link
+    const emailService = (await import('../services/emailService.js')).default;
+    const mailtoLink = emailService.generateMailtoLink(
+      {
+        name: candidate.name || candidateUser.displayName,
+        email: candidateUser.email
+      },
+      job
+    );
 
-    const mailtoLink =});
-;
-  } })   ics'
-yt job analto fetchFailed age: '
-      messe, fals    success:{
-  send(500).ode( reply.cerror);
-   r:', rroytics e analror('Jobsole.er
-    con (error) {} catch
+    reply.send({
+      success: true,
+      mailtoLink,
+      candidateEmail: candidateUser.email
+    });
 
-  ); }tics
-   analyue,
-      ess: tr
-      succnd({    reply.se
+  } catch (error) {
+    console.error('Mailto generation error:', error);
+    reply.code(500).send({
+      success: false,
+      message: 'Failed to generate mailto link'
+    });
+  }
+});
 
-};    }
+// Generate shortlist for job
+router.post('/jobs/:id/generate-shortlist', {
+  preHandler: [authenticateToken]
+}, async (request, reply) => {
+  try {
+    const { user } = request;
+    const job = await JobPosting.findById(request.params.id);
 
-        }th
-      ngected').leatus('rejyStlistB.getShortected: job     rej    
- gth,ed').lentatus('hirstByS.getShortlijob hired:         h,
- gtlend').rvieweStatus('inteByrtlist job.getShorviewed:nte     i     ,
-d').lengthontacteyStatus('cistBShortljob.getntacted:   coh,
-        ).lengthortlisted'tByStatus('stShortlisgelisted: job.      short   {
-  tatus:
-        byStCount,ob.shortlistotal: j     s: {
-   tlistStat  shor   
- cs,job.analyti      ...s = {
-analyticst 
-    con    }
-);
-   }ied'
-   ss dencce message: 'A       ,
-: false   successnd({
-     secode(403).eply. return r    in') {
- !== 'adm& user.role d &er.i!== ustoString() erId.(job.recruitif    p
- fy ownershi    // Veri
+    if (!job) {
+      return reply.code(404).send({
+        success: false,
+        message: 'Job not found'
+      });
     }
 
-;
-      })nd'Job not fou message: ',
-       lse faccess:
-        su4).send({eply.code(40turn rre{
-      (!job)  if ;
+    // Verify ownership
+    if (job.recruiterId.toString() !== user.id && user.role !== 'admin') {
+      return reply.code(403).send({
+        success: false,
+        message: 'Access denied'
+      });
+    }
 
-   arams.id).pequestndById(rfiobPosting. = await Jobonst j
-    cuest;user } = reqonst {     c{
-  try {
-reply) => (request, async 
-}, ticateToken]er: [autheneHandl prs', {
- alyticobs/:id/an'/jouter.get(ics
-rlytGet job ana
+    // Generate new shortlist
+    const shortlistResult = await jobMatchingService.createShortlist(request.params.id, {
+      maxCandidates: job.maxCandidates,
+      regenerate: true
+    });
 
-// ););
+    // Format candidates with match data
+    const candidates = shortlistResult.shortlist.map(item => ({
+      ...item.candidateId,
+      matchScore: item.matchScore,
+      matchDetails: item.matchDetails,
+      matchExplanation: item.matchExplanation,
+      status: item.status || 'shortlisted',
+      addedAt: item.addedAt
+    }));
+
+    reply.send({
+      success: true,
+      candidates: candidates,
+      analytics: {
+        totalCandidates: shortlistResult.totalCandidates,
+        averageMatchScore: shortlistResult.averageMatchScore,
+        topMatchScore: shortlistResult.topMatchScore,
+        generatedAt: shortlistResult.generatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Shortlist generation error:', error);
+    reply.code(500).send({
+      success: false,
+      message: `Failed to generate shortlist: ${error.message}`
+    });
   }
-}
-    }lto link'rate maieneiled to g'Fa:     message  alse,
-: fsuccess{
-      nd((500).se reply.codeor);
-   ', errerror:tion lto genera.error('Maioleconsr) {
-    ch (erro
-  } cat });
-   
-r.emaildateUsendicadateEmail: andi   c  iltoLink,
-  ma   ,
-  ess: trueucc
-      s.send({  reply
-  
-    );
-,
-      jobl
-      }eUser.emaindidat  email: ca
-      ayName,.displdidateUser|| cane.name atdid can       name:    {
- 
-  ink(ateMailtoLervice.generlSai emult;s')).defaService.jmailvices/e/sert('..imporait vice = (awnst emailSer   co ate mainer // Ge
+});
 
 export default router;

@@ -1,160 +1,224 @@
 <script>
   import { authStore } from '$lib/stores/auth.js';
   import { walletStore } from '$lib/services/wallet.js';
-  import { apiService } from '$lib/services/api.js';
+  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { Button, ResponsiveLayout } from '$lib/components/ui';
+  import RoleSelector from '$lib/components/RoleSelector.svelte';
 
-  let apiStatus = 'checking...';
-  let backendHealth = null;
+  let showRoleSelector = false;
 
-  onMount(async () => {
-    // Test API connection
-    try {
-      backendHealth = await apiService.healthCheck();
-      apiStatus = 'connected';
-    } catch (error) {
-      apiStatus = 'disconnected';
-      console.error('Backend connection failed:', error);
+  onMount(() => {
+    // If user is already authenticated, redirect to appropriate dashboard
+    if ($authStore.user) {
+      // TODO: Redirect based on user role
+      goto('/dashboard');
     }
   });
+
+  function handleGetStarted() {
+    showRoleSelector = true;
+  }
+
+  function handleRoleSelected(event) {
+    const role = event.detail;
+    // Store selected role and redirect to registration
+    localStorage.setItem('selectedRole', role.id);
+    goto(`/auth/register?role=${role.id}`);
+  }
+
+  function handleSignIn() {
+    goto('/auth/login');
+  }
 </script>
 
 <svelte:head>
-  <title>CryptoGigs - Decentralized Freelance Marketplace</title>
-  <meta name="description" content="A decentralized freelance marketplace with cryptocurrency payments" />
+  <title>Kiro Talent Engine - AI-Powered Talent Platform</title>
+  <meta name="description" content="Connect recruiters with top talent using AI-powered portfolio analysis and smart matching" />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
-  <header class="text-center mb-12">
-    <h1 class="text-4xl font-bold mb-4 text-orange-500">CryptoGigs</h1>
-    <p class="text-xl text-gray-600 dark:text-gray-300">
-      Decentralized Freelance Marketplace with Cryptocurrency Payments
-    </p>
-  </header>
-
-  <div class="max-w-4xl mx-auto">
-    <!-- System Status -->
-    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-6 mb-8">
-      <h2 class="text-2xl font-semibold mb-4">System Status</h2>
-      
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Frontend Status -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
-          <h3 class="font-semibold text-green-600 dark:text-green-400">Frontend</h3>
-          <p class="text-sm text-gray-600 dark:text-gray-300">Svelte 5 ✓</p>
-          <p class="text-sm text-gray-600 dark:text-gray-300">Tailwind CSS ✓</p>
-        </div>
-
-        <!-- Backend Status -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
-          <h3 class="font-semibold" class:text-green-600={apiStatus === 'connected'} 
-              class:text-green-400={apiStatus === 'connected'} 
-              class:text-red-600={apiStatus === 'disconnected'}
-              class:text-red-400={apiStatus === 'disconnected'}
-              class:text-yellow-600={apiStatus === 'checking...'}
-              class:text-yellow-400={apiStatus === 'checking...'}>
-            Backend API
-          </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-300">
-            Status: {apiStatus}
-          </p>
-          {#if backendHealth}
-            <p class="text-sm text-gray-600 dark:text-gray-300">
-              Fastify ✓
-            </p>
-          {/if}
-        </div>
-
-        <!-- Wallet Status -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4">
-          <h3 class="font-semibold" class:text-green-600={$walletStore.isConnected} 
-              class:text-green-400={$walletStore.isConnected}
-              class:text-gray-600={!$walletStore.isConnected}
-              class:text-gray-400={!$walletStore.isConnected}>
-            Wallet
-          </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-300">
-            {$walletStore.isConnected ? 'Connected' : 'Not Connected'}
-          </p>
-          {#if $walletStore.isConnected}
-            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-              {$walletStore.address}
-            </p>
-          {/if}
-        </div>
-      </div>
-    </div>
-
-    <!-- Authentication Status -->
-    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-6 mb-8">
-      <h2 class="text-2xl font-semibold mb-4">Authentication</h2>
-      
-      {#if $authStore.loading}
-        <p class="text-gray-600 dark:text-gray-300">Loading authentication...</p>
-      {:else if $authStore.user}
-        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <h3 class="font-semibold text-green-800 dark:text-green-200">Authenticated</h3>
-          <p class="text-sm text-green-700 dark:text-green-300">
-            Email: {$authStore.user.email}
-          </p>
-          <p class="text-sm text-green-700 dark:text-green-300">
-            UID: {$authStore.user.uid}
-          </p>
-        </div>
-      {:else}
-        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <h3 class="font-semibold text-yellow-800 dark:text-yellow-200">Not Authenticated</h3>
-          <p class="text-sm text-yellow-700 dark:text-yellow-300">
-            Please sign in to access the platform
-          </p>
-        </div>
-      {/if}
-    </div>
-
-    <!-- Project Structure -->
-    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
-      <h2 class="text-2xl font-semibold mb-4">Project Setup Complete</h2>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h3 class="font-semibold mb-2 text-orange-600 dark:text-orange-400">Frontend Features</h3>
-          <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-            <li>✓ Svelte 5 with JavaScript</li>
-            <li>✓ Tailwind CSS for styling</li>
-            <li>✓ Firebase Authentication</li>
-            <li>✓ Wallet integration (MetaMask)</li>
-            <li>✓ API service layer</li>
-            <li>✓ Reactive stores</li>
-          </ul>
-        </div>
-        
-        <div>
-          <h3 class="font-semibold mb-2 text-orange-600 dark:text-orange-400">Backend Features</h3>
-          <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-            <li>✓ Fastify server with JavaScript</li>
-            <li>✓ CORS and rate limiting</li>
-            <li>✓ JWT authentication</li>
-            <li>✓ Blockchain integration (Ethers.js)</li>
-            <li>✓ File upload support</li>
-            <li>✓ Environment configuration</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-        <h4 class="font-semibold text-blue-800 dark:text-blue-200 mb-2">Get Started</h4>
-        <p class="text-sm text-blue-700 dark:text-blue-300 mb-4">
-          The authentication system is ready! Create an account or sign in to start using CryptoGigs.
+{#if !showRoleSelector}
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <ResponsiveLayout variant="centered" class="text-center py-20">
+      <div class="max-w-4xl mx-auto fade-in">
+        <h1 class="heading-1 mb-6 text-accent">
+          Kiro Talent Engine
+        </h1>
+        <p class="body-large mb-8 max-w-2xl mx-auto">
+          The universal AI-powered talent platform connecting recruiters with freelancers, 
+          students, graduates, and PhD candidates through intelligent portfolio analysis 
+          and crypto-native payments.
         </p>
-        <div class="flex gap-3">
-          <a href="/auth/register" class="inline-block px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors">
-            Create Account
-          </a>
-          <a href="/auth/login" class="inline-block px-4 py-2 bg-transparent border-2 border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg font-medium transition-colors">
+        
+        <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          <Button 
+            variant="primary" 
+            size="lg"
+            onclick={handleGetStarted}
+            class="hover-lift"
+          >
+            Get Started
+          </Button>
+          <Button 
+            variant="secondary" 
+            size="lg"
+            onclick={handleSignIn}
+            class="hover-lift"
+          >
             Sign In
-          </a>
+          </Button>
         </div>
       </div>
-    </div>
-  </div>
-</div>
+    </ResponsiveLayout>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features-section py-20" style="background-color: var(--bg-secondary);">
+    <ResponsiveLayout maxWidth="xl">
+      <div class="text-center mb-16">
+        <h2 class="heading-2 mb-4">Why Choose Kiro?</h2>
+        <p class="body-large text-secondary max-w-2xl mx-auto">
+          Experience the future of talent matching with AI-driven insights and seamless crypto payments
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="feature-card text-center slide-in">
+          <div class="feature-icon mb-6">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="heading-4 mb-4">AI-Powered Analysis</h3>
+          <p class="body text-secondary">
+            Advanced portfolio and GitHub analysis with personalized improvement suggestions
+          </p>
+        </div>
+
+        <div class="feature-card text-center slide-in">
+          <div class="feature-icon mb-6">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="heading-4 mb-4">Smart Matching</h3>
+          <p class="body text-secondary">
+            Intelligent candidate-job matching based on skills, experience, and portfolio quality
+          </p>
+        </div>
+
+        <div class="feature-card text-center slide-in">
+          <div class="feature-icon mb-6">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <h3 class="heading-4 mb-4">Crypto Payments</h3>
+          <p class="body text-secondary">
+            Seamless test token payments with real-time earnings tracking and wallet integration
+          </p>
+        </div>
+      </div>
+    </ResponsiveLayout>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="stats-section py-20">
+    <ResponsiveLayout maxWidth="lg">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+        <div class="stat-item scale-in">
+          <div class="heading-1 text-accent mb-2">10K+</div>
+          <p class="body text-secondary">Active Users</p>
+        </div>
+        <div class="stat-item scale-in">
+          <div class="heading-1 text-accent mb-2">95%</div>
+          <p class="body text-secondary">Match Accuracy</p>
+        </div>
+        <div class="stat-item scale-in">
+          <div class="heading-1 text-accent mb-2">24/7</div>
+          <p class="body text-secondary">AI Analysis</p>
+        </div>
+      </div>
+    </ResponsiveLayout>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section py-20" style="background-color: var(--bg-secondary);">
+    <ResponsiveLayout variant="centered" class="text-center">
+      <div class="max-w-2xl mx-auto">
+        <h2 class="heading-2 mb-4">Ready to Transform Your Career?</h2>
+        <p class="body-large text-secondary mb-8">
+          Join thousands of professionals who trust Kiro for their talent needs
+        </p>
+        <Button 
+          variant="primary" 
+          size="lg"
+          onclick={handleGetStarted}
+          class="hover-lift"
+        >
+          Start Your Journey
+        </Button>
+      </div>
+    </ResponsiveLayout>
+  </section>
+{:else}
+  <!-- Role Selection -->
+  <section class="role-selection-section py-12">
+    <ResponsiveLayout maxWidth="xl">
+      <RoleSelector on:roleSelected={handleRoleSelected} />
+    </ResponsiveLayout>
+  </section>
+{/if}
+
+<style>
+  .hero-section {
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+  }
+
+  .feature-card {
+    padding: 2rem;
+    border-radius: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  }
+
+  .feature-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+    background: var(--accent-color);
+    color: white;
+    border-radius: 50%;
+  }
+
+  .stat-item {
+    padding: 1rem;
+  }
+
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+
+  /* Animation delays for staggered effects */
+  .slide-in:nth-child(1) { animation-delay: 0.1s; }
+  .slide-in:nth-child(2) { animation-delay: 0.2s; }
+  .slide-in:nth-child(3) { animation-delay: 0.3s; }
+
+  .scale-in:nth-child(1) { animation-delay: 0.1s; }
+  .scale-in:nth-child(2) { animation-delay: 0.2s; }
+  .scale-in:nth-child(3) { animation-delay: 0.3s; }
+</style>
