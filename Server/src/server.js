@@ -24,7 +24,11 @@ const fastify = Fastify({
 
 // Register plugins
 await fastify.register(cors, {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    'https://freelance-orpin-omega.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
   credentials: true
 });
 
