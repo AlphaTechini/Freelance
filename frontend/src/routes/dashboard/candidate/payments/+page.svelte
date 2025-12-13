@@ -246,7 +246,7 @@
                       class:bg-white={page !== currentPage}
                       class:border-gray-300={page !== currentPage}
                       class:text-gray-500={page !== currentPage}
-                      class:dark:bg-orange-900/30={page === currentPage}
+                      class:dark:bg-orange-900={page === currentPage}
                       class:dark:border-orange-600={page === currentPage}
                       class:dark:text-orange-400={page === currentPage}
                       class:dark:bg-gray-800={page !== currentPage}

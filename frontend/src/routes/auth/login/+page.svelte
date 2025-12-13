@@ -128,7 +128,7 @@
         </div>
       {/if}
 
-      <form on:submit|preventDefault={handleEmailLogin} class="space-y-6">
+      <form onsubmit={(e) => { e.preventDefault(); handleEmailLogin(e); }} class="space-y-6">
         <!-- Email Input -->
         <div>
           <Input

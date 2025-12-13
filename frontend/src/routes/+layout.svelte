@@ -28,6 +28,6 @@
   {/if}
   
   <main>
-    <slot />
+    {@render children()}
   </main>
 </div>

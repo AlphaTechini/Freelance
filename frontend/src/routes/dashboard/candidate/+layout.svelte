@@ -121,7 +121,7 @@
         </div>
       {/if}
       
-      <slot {candidate} {portfolioAnalysis} {analysisLoading} {handleReanalyze} />
+      {@render children({ candidate, portfolioAnalysis, analysisLoading, handleReanalyze })}
     </div>
   </div>
 </div>

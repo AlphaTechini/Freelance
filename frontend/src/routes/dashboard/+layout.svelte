@@ -53,6 +53,6 @@
       </div>
     </div>
   {:else}
-    <slot />
+    {@render children()}
   {/if}
 </div>

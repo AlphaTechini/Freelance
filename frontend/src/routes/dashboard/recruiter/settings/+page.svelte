@@ -104,7 +104,7 @@
       <p class="text-sm text-gray-600 dark:text-gray-400">Update your public profile information</p>
     </div>
     
-    <form onsubmit|preventDefault={handleSave} class="p-6 space-y-6">
+    <form onsubmit={(e) => { e.preventDefault(); handleSave(e); }} class="p-6 space-y-6">
       <!-- Profile Image -->
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

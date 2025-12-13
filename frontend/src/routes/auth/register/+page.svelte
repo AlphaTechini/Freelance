@@ -294,12 +294,12 @@
         </div>
       {/if}
 
-      <form on:submit|preventDefault={handleEmailRegister} class="space-y-6">
+      <form onsubmit={(e) => { e.preventDefault(); handleEmailRegister(e); }} class="space-y-6">
         <!-- Role Selection -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <fieldset>
+          <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Select Your Role *
-          </label>
+          </legend>
           <div class="grid grid-cols-1 gap-3">
             {#each roleOptions as roleOption}
               <label 
@@ -330,7 +330,7 @@
           {#if roleError}
             <p class="mt-1 text-sm text-red-600 dark:text-red-400">{roleError}</p>
           {/if}
-        </div>
+        </fieldset>
         
         <!-- Username Input -->
         <div>

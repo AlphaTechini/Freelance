@@ -89,5 +89,4 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  </div>
-</div>
+</style>

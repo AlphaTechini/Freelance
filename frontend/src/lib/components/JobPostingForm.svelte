@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
-  import { api } from '../services/api.js';
+  import { apiService } from '../services/api.js';
 
   const dispatch = createEventDispatcher();
 
@@ -67,7 +67,7 @@
     error = '';
 
     try {
-      const response = await api.post('/jobs', formData);
+      const response = await apiService.post('/jobs', formData);
       
       if (response.success) {
         dispatch('jobCreated', response.job);

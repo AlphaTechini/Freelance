@@ -1,14 +1,15 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
   
-  const dispatch = createEventDispatcher();
-  
   // Props
-  export let initialData = {};
-  export let loading = false;
-  export let error = '';
+  let {
+    initialData = {},
+    loading = false,
+    error = '',
+    onsubmit = () => {},
+    onerror = () => {}
+  } = $props();
   
   // Form state
   let formData = $state({
@@ -43,16 +44,16 @@
     
     // Basic validation
     if (!formData.company.trim()) {
-      dispatch('error', 'Company name is required');
+      onerror('Company name is required');
       return;
     }
     
     if (!formData.position.trim()) {
-      dispatch('error', 'Position is required');
+      onerror('Position is required');
       return;
     }
     
-    dispatch('submit', formData);
+    onsubmit(formData);
   }
 </script>
 

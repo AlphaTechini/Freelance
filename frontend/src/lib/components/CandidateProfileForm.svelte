@@ -1,14 +1,15 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
   import Button from './ui/Button.svelte';
   import Input from './ui/Input.svelte';
   
-  const dispatch = createEventDispatcher();
-  
   // Props
-  export let initialData = {};
-  export let loading = false;
-  export let error = '';
+  let {
+    initialData = {},
+    loading = false,
+    error = '',
+    onsubmit = () => {},
+    onerror = () => {}
+  } = $props();
   
   // Form state
   let formData = $state({
@@ -79,27 +80,27 @@
     
     // Basic validation
     if (!formData.educationLevel) {
-      dispatch('error', 'Education level is required');
+      onerror('Education level is required');
       return;
     }
     
     if (formData.yearsOfExperience < 0) {
-      dispatch('error', 'Years of experience cannot be negative');
+      onerror('Years of experience cannot be negative');
       return;
     }
     
     // Validate URLs if provided
     if (formData.portfolioUrl && !isValidUrl(formData.portfolioUrl)) {
-      dispatch('error', 'Please enter a valid portfolio URL');
+      onerror('Please enter a valid portfolio URL');
       return;
     }
     
     if (formData.githubUrl && !isValidUrl(formData.githubUrl)) {
-      dispatch('error', 'Please enter a valid GitHub URL');
+      onerror('Please enter a valid GitHub URL');
       return;
     }
     
-    dispatch('submit', formData);
+    onsubmit(formData);
   }
   
   function isValidUrl(string) {
