@@ -1,9 +1,8 @@
-import { Router } from 'fastify';
 import JobPosting from '../models/JobPosting.js';
 import jobMatchingService from '../services/jobMatchingService.js';
 import { authenticateToken } from '../middleware/auth.js';
 
-const router = Router();
+async function jobRoutes(fastify, options) {
 
 // Job posting validation schema
 const jobPostingSchema = {
@@ -48,8 +47,8 @@ const jobPostingSchema = {
   }
 };
 
-// Create new job posting
-router.post('/jobs', {
+  // Create new job posting
+  fastify.post('/jobs', {
   preHandler: [authenticateToken],
   schema: {
     body: jobPostingSchema,
@@ -120,8 +119,8 @@ router.post('/jobs', {
   }
 });
 
-// Get all jobs (with filters)
-router.get('/jobs', {
+  // Get all jobs (with filters)
+  fastify.get('/jobs', {
   schema: {
     querystring: {
       type: 'object',
@@ -183,8 +182,8 @@ router.get('/jobs', {
   }
 });
 
-// Get job by ID
-router.get('/jobs/:id', async (request, reply) => {
+  // Get job by ID
+  fastify.get('/jobs/:id', async (request, reply) => {
   try {
     const job = await JobPosting.findById(request.params.id)
       .populate('recruiter', 'name email')
@@ -214,8 +213,8 @@ router.get('/jobs/:id', async (request, reply) => {
   }
 });
 
-// Get candidates for a job (shortlist)
-router.get('/jobs/:id/candidates', {
+  // Get candidates for a job (shortlist)
+  fastify.get('/jobs/:id/candidates', {
   preHandler: [authenticateToken]
 }, async (request, reply) => {
   try {
@@ -267,8 +266,8 @@ router.get('/jobs/:id/candidates', {
   }
 });
 
-// Hire a candidate (Requirements 5.1, 5.2, 5.3)
-router.post('/jobs/:id/hire', {
+  // Hire a candidate (Requirements 5.1, 5.2, 5.3)
+  fastify.post('/jobs/:id/hire', {
   preHandler: [authenticateToken],
   schema: {
     body: {
@@ -358,8 +357,8 @@ router.post('/jobs/:id/hire', {
   }
 });
 
-// Generate mailto link for candidate (Requirements 5.4, 5.5)
-router.get('/jobs/:id/candidates/:candidateId/mailto', {
+  // Generate mailto link for candidate (Requirements 5.4, 5.5)
+  fastify.get('/jobs/:id/candidates/:candidateId/mailto', {
   preHandler: [authenticateToken]
 }, async (request, reply) => {
   try {
@@ -432,8 +431,8 @@ router.get('/jobs/:id/candidates/:candidateId/mailto', {
   }
 });
 
-// Generate shortlist for job
-router.post('/jobs/:id/generate-shortlist', {
+  // Generate shortlist for job
+  fastify.post('/jobs/:id/generate-shortlist', {
   preHandler: [authenticateToken]
 }, async (request, reply) => {
   try {
@@ -491,4 +490,6 @@ router.post('/jobs/:id/generate-shortlist', {
   }
 });
 
-export default router;
+}
+
+export default jobRoutes;

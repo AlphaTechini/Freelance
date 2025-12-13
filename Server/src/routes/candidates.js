@@ -1,12 +1,11 @@
-import { Router } from 'fastify';
 import CandidateProfile from '../models/CandidateProfile.js';
 import User from '../models/User.js';
 import { authenticateToken } from '../middleware/auth.js';
 
-const router = Router();
+async function candidateRoutes(fastify, options) {
 
-// Search candidates
-router.get('/candidates/search', {
+  // Search candidates
+  fastify.get('/candidates/search', {
   schema: {
     querystring: {
       type: 'object',
@@ -105,8 +104,8 @@ router.get('/candidates/search', {
   }
 });
 
-// Get candidate by ID
-router.get('/candidates/:id', async (request, reply) => {
+  // Get candidate by ID
+  fastify.get('/candidates/:id', async (request, reply) => {
   try {
     const candidate = await CandidateProfile.findById(request.params.id).lean();
 
@@ -146,8 +145,8 @@ router.get('/candidates/:id', async (request, reply) => {
   }
 });
 
-// Get all candidates (for recruiters)
-router.get('/candidates', {
+  // Get all candidates (for recruiters)
+  fastify.get('/candidates', {
   preHandler: [authenticateToken],
   schema: {
     querystring: {
@@ -227,4 +226,6 @@ router.get('/candidates', {
   }
 });
 
-export default router;
+}
+
+export default candidateRoutes;

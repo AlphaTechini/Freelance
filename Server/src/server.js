@@ -119,8 +119,14 @@ fastify.get('/api/test', async (request, reply) => {
 // Start server
 const start = async () => {
   try {
-    // Connect to MongoDB
-    await connectDatabase();
+    // Try to connect to MongoDB
+    try {
+      await connectDatabase();
+      fastify.log.info('Database connected successfully');
+    } catch (dbError) {
+      fastify.log.warn('Database connection failed, starting server without database:', dbError.message);
+      // Continue without database - server will still start for API testing
+    }
     
     const port = process.env.PORT || 3000;
     const host = process.env.HOST || '0.0.0.0';

@@ -1,11 +1,10 @@
-import { Router } from 'fastify';
 import paymentService from '../services/paymentService.js';
 import { authenticateToken } from '../middleware/auth.js';
 
-const router = Router();
+async function paymentRoutes(fastify, options) {
 
-// Send payment
-router.post('/payments/send', {
+  // Send payment
+  fastify.post('/payments/send', {
   preHandler: [authenticateToken],
   schema: {
     body: {
@@ -84,8 +83,8 @@ router.post('/payments/send', {
   }
 });
 
-// Get payment history
-router.get('/payments/history', {
+  // Get payment history
+  fastify.get('/payments/history', {
   preHandler: [authenticateToken],
   schema: {
     querystring: {
@@ -122,8 +121,8 @@ router.get('/payments/history', {
   }
 });
 
-// Get user earnings
-router.get('/payments/earnings', {
+  // Get user earnings
+  fastify.get('/payments/earnings', {
   preHandler: [authenticateToken]
 }, async (request, reply) => {
   try {
@@ -145,8 +144,8 @@ router.get('/payments/earnings', {
   }
 });
 
-// Get payment statistics
-router.get('/payments/stats', {
+  // Get payment statistics
+  fastify.get('/payments/stats', {
   preHandler: [authenticateToken]
 }, async (request, reply) => {
   try {
@@ -168,8 +167,8 @@ router.get('/payments/stats', {
   }
 });
 
-// Get exchange rates
-router.get('/payments/rates', async (request, reply) => {
+  // Get exchange rates
+  fastify.get('/payments/rates', async (request, reply) => {
   try {
     const rates = paymentService.getExchangeRates();
 
@@ -187,8 +186,8 @@ router.get('/payments/rates', async (request, reply) => {
   }
 });
 
-// Verify payment (for testing purposes)
-router.post('/payments/verify', {
+  // Verify payment (for testing purposes)
+  fastify.post('/payments/verify', {
   preHandler: [authenticateToken],
   schema: {
     body: {
@@ -231,4 +230,6 @@ router.post('/payments/verify', {
   }
 });
 
-export default router;
+}
+
+export default paymentRoutes;
