@@ -124,7 +124,7 @@ const handleChainChanged = (chainId) => {
 
 // Generate authentication message with nonce
 export const generateAuthMessage = (address, nonce) => {
-  return `Welcome to CryptoGigs!\n\nPlease sign this message to authenticate your wallet.\n\nWallet Address: ${address}\nNonce: ${nonce}\n\nThis request will not trigger a blockchain transaction or cost any gas fees.`;
+  return `Welcome to MeritStack!\n\nPlease sign this message to authenticate your wallet.\n\nWallet Address: ${address}\nNonce: ${nonce}\n\nThis request will not trigger a blockchain transaction or cost any gas fees.`;
 };
 
 // Sign message for authentication

@@ -63,7 +63,7 @@
 </script>
 
 <svelte:head>
-  <title>{gig ? gig.title : 'Loading...'} - CryptoGigs</title>
+  <title>{gig ? gig.title : 'Loading...'} - MeritStack</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

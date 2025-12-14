@@ -36,7 +36,7 @@
 </script>
 
 <svelte:head>
-  <title>Earnings - CryptoGigs</title>
+  <title>Earnings - MeritStack</title>
 </svelte:head>
 
 <div class="space-y-6">

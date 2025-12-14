@@ -898,76 +898,76 @@ Property-based tests verify universal properties hold across all inputs using **
 
 **Property Tests to Implement**:
 
-Each property test MUST be tagged with: `**Feature: cryptogigs, Property {number}: {property_text}**`
+Each property test MUST be tagged with: `**Feature: meritstack, Property {number}: {property_text}**`
 
-1. **Feature: cryptogigs, Property 1: Role-based profile completeness**
+1. **Feature: meritstack, Property 1: Role-based profile completeness**
    - Generate random user registrations with different roles
    - Verify all required fields are stored and retrievable
 
-2. **Feature: cryptogigs, Property 2: Portfolio analysis determinism**
+2. **Feature: meritstack, Property 2: Portfolio analysis determinism**
    - Generate random portfolio data
    - Run analysis multiple times
    - Verify scores are consistent within 5% margin
 
-3. **Feature: cryptogigs, Property 3: Match score calculation consistency**
+3. **Feature: meritstack, Property 3: Match score calculation consistency**
    - Generate random job postings and candidate profiles
    - Calculate match scores multiple times
    - Verify identical results
 
-4. **Feature: cryptogigs, Property 4: Match score component weights**
+4. **Feature: meritstack, Property 4: Match score component weights**
    - Generate random match score components
    - Verify sum of weights equals 100%
 
-5. **Feature: cryptogigs, Property 5: Shortlist ordering**
+5. **Feature: meritstack, Property 5: Shortlist ordering**
    - Generate random candidate lists with match scores
    - Verify shortlist is sorted in descending order
 
-6. **Feature: cryptogigs, Property 6: Payment transaction integrity**
+6. **Feature: meritstack, Property 6: Payment transaction integrity**
    - Generate random payment transactions
    - Verify debit equals credit for same token type
 
-7. **Feature: cryptogigs, Property 7: Earnings accumulation**
+7. **Feature: meritstack, Property 7: Earnings accumulation**
    - Generate random payment sequences
    - Verify total earnings equals sum of payments
 
-8. **Feature: cryptogigs, Property 8: Username uniqueness**
+8. **Feature: meritstack, Property 8: Username uniqueness**
    - Generate multiple user registrations with different usernames
    - Verify all usernames are unique and duplicates are rejected
 
-16. **Feature: cryptogigs, Property 16: Wallet address uniqueness**
+16. **Feature: meritstack, Property 16: Wallet address uniqueness**
    - Generate multiple user registrations with different wallet addresses
    - Verify all wallet addresses are unique and duplicates are rejected
 
-17. **Feature: cryptogigs, Property 17: Authentication signature verification**
+17. **Feature: meritstack, Property 17: Authentication signature verification**
    - Generate random wallet addresses and signatures
    - Verify valid signatures authenticate successfully
    - Verify invalid signatures are rejected
 
-9. **Feature: cryptogigs, Property 9: Hire status persistence**
+9. **Feature: meritstack, Property 9: Hire status persistence**
    - Generate random hire actions
    - Verify status persists across queries
 
-10. **Feature: cryptogigs, Property 10: Profile sidebar data consistency**
+10. **Feature: meritstack, Property 10: Profile sidebar data consistency**
     - Generate random profile updates
     - Verify sidebar reflects changes immediately
 
-11. **Feature: cryptogigs, Property 11: AI analysis URL validation**
+11. **Feature: meritstack, Property 11: AI analysis URL validation**
     - Generate random URLs (valid and invalid)
     - Verify invalid URLs are rejected before analysis
 
-12. **Feature: cryptogigs, Property 12: Improvement suggestion count**
+12. **Feature: meritstack, Property 12: Improvement suggestion count**
     - Generate random portfolio analyses
     - Verify 3-5 suggestions are always generated
 
-13. **Feature: cryptogigs, Property 13: Match score range**
+13. **Feature: meritstack, Property 13: Match score range**
     - Generate random match calculations
     - Verify scores are between 0-100
 
-14. **Feature: cryptogigs, Property 14: Required skills impact**
+14. **Feature: meritstack, Property 14: Required skills impact**
     - Generate candidate pairs with different skill matches
     - Verify candidate with more skills has higher score
 
-15. **Feature: cryptogigs, Property 15: Payment metadata completeness**
+15. **Feature: meritstack, Property 15: Payment metadata completeness**
     - Generate random payments
     - Verify all required metadata fields are present
 
@@ -1361,24 +1361,55 @@ based)
 - Response compression (gzip)
 
 ### AI Performance
-- Parallel processing for esilural fa for criticertsal-time altions)
-- Reabase connec, datmemoryrds (CPU,  dashboaealth- System horing
- monitionctnsatrament trics
-- Pay meimings and ttes success ra analysisage)
-- AI feature uiews,s (page vior analyticehavr bse- Ular)
-misi or rying (Sentlertand atracking )
-- Error or ratesmes, erronse ti(respg inmonitornce ormaperfon icati Appl
--Analyticsitoring and # Mon
+- Parallel processing for portfolio analysis to reduce response times
+- Resource monitoring for critical system health metrics (CPU, memory, database connections)
+- Performance tracking for AI features (analysis success rates, response times)
+- User behavior analytics (page views, feature usage patterns)
+- Error monitoring and alerting (Sentry integration for real-time error tracking)
+- Application performance monitoring with detailed metrics
 
-##ns)tioconnec(max 10 g poolinection tion
-- Connmizaline optiiperegation pAgg page)
-- ms per iteets (20esult s ror largen fatio
-- Pagined fieldsreturno limit ojection tns
-- Pry patter quer commonxes forompound inde- Cnce
-se Performa# Databaes
+## Monitoring and Analytics
 
-##ent analysrgng for non-ussind job procerouckga)
-- Baged datyze chanonly re-anallysis (nantal aIncremees
-- alysunning anng-rvent loto prets t limiimeou TTL)
-- Tses (1 hourb API respong of GitHu- Cachinuations
-alevdidate tiple canmul
+### System Health Monitoring
+- Database connection pooling (max 10 connections)
+- Query optimization and aggregation pipeline performance
+- Pagination for large result sets (20 items per page)
+- Compound indexes for common query patterns
+- Connection limits and resource management
+
+### Database Performance
+- Incremental analysis for portfolio changes (only re-analyze when data changes)
+- Background job processing for non-urgent analysis tasks
+- Caching of GitHub API responses (1 hour TTL)
+- Rate limiting to prevent API quota exhaustion
+- Batch processing for multiple candidate evaluations
+
+### Analytics and Insights
+- User engagement tracking (time spent, features used)
+- Conversion funnel analysis (registration → profile completion → job applications)
+- A/B testing framework for feature optimization
+- Revenue analytics and payment success rates
+- Portfolio analysis effectiveness metrics
+
+## Deployment and DevOps
+
+### Production Environment
+- **Hosting**: Vercel for frontend, Railway/Heroku for backend
+- **Database**: MongoDB Atlas with automated backups
+- **CDN**: Cloudinary for image optimization and delivery
+- **Monitoring**: Uptime monitoring with alerting
+- **SSL**: Automatic HTTPS with certificate management
+
+### CI/CD Pipeline
+- **Version Control**: Git with feature branch workflow
+- **Testing**: Automated unit and integration tests
+- **Deployment**: Automatic deployment on main branch merge
+- **Rollback**: Quick rollback capability for failed deployments
+- **Environment Management**: Separate staging and production environments
+
+### Scaling Strategy
+- **Horizontal Scaling**: Load balancing across multiple server instances
+- **Database Scaling**: Read replicas for improved query performance
+- **Caching Layer**: Redis for session management and API response caching
+- **CDN Integration**: Global content delivery for static assets
+- **Microservices**: Gradual migration to microservices architecture as needed

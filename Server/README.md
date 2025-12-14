@@ -1,6 +1,6 @@
-# CryptoGigs Backend
+# MeritStack Backend
 
-A Fastify-based backend API for the CryptoGigs decentralized freelance marketplace.
+A Fastify-based backend API for the MeritStack decentralized freelance marketplace.
 
 ## Features
 

@@ -1,4 +1,4 @@
-# CryptoGigs Project Setup
+# MeritStack Project Setup
 
 This document describes the initial project structure and configuration.
 

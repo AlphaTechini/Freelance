@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Integration Test Script for CryptoGigs Platform
+ * Integration Test Script for MeritStack Platform
  * Tests end-to-end workflows to ensure all components are properly integrated
  */
 
@@ -212,7 +212,7 @@ class IntegrationTester {
   }
 
   async runAllTests() {
-    console.log('🚀 Starting CryptoGigs Integration Tests\n');
+    console.log('🚀 Starting MeritStack Integration Tests\n');
     console.log(`API Base URL: ${API_BASE_URL}`);
 
     let jobId, candidateId;

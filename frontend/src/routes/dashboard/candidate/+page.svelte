@@ -91,7 +91,7 @@
 </script>
 
 <svelte:head>
-  <title>Candidate Dashboard - CryptoGigs</title>
+  <title>Candidate Dashboard - MeritStack</title>
 </svelte:head>
 
 <div class="space-y-6">

@@ -108,14 +108,14 @@
 </script>
 
 <svelte:head>
-  <title>Login - CryptoGigs</title>
+  <title>Login - MeritStack</title>
 </svelte:head>
 
 <div class="min-h-screen flex items-center justify-center px-4 py-12 bg-gray-50 dark:bg-gray-900">
   <div class="max-w-md w-full">
     <!-- Header -->
     <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold text-orange-500 mb-2">CryptoGigs</h1>
+      <h1 class="text-4xl font-bold text-orange-500 mb-2">MeritStack</h1>
       <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Welcome Back</h2>
       <p class="text-gray-600 dark:text-gray-400">Sign in to your account</p>
     </div>

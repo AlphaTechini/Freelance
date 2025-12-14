@@ -1,6 +1,6 @@
-# CryptoGigs Frontend
+# MeritStack Frontend
 
-Frontend application for CryptoGigs platform built with Svelte 5 and SvelteKit.
+Frontend application for MeritStack platform built with Svelte 5 and SvelteKit.
 
 ## Setup
 

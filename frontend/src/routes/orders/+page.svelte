@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>Orders - CryptoGigs</title>
+  <title>Orders - MeritStack</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

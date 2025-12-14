@@ -56,7 +56,7 @@
 </script>
 
 <svelte:head>
-  <title>Wallet - CryptoGigs</title>
+  <title>Wallet - MeritStack</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
@@ -74,7 +74,7 @@
         
         <h2 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Connect Your Wallet</h2>
         <p class="text-gray-600 dark:text-gray-400 mb-6">
-          Connect your crypto wallet to start making and receiving payments on CryptoGigs.
+          Connect your crypto wallet to start making and receiving payments on MeritStack.
         </p>
         
         <div class="max-w-sm mx-auto">

@@ -187,7 +187,7 @@
 </script>
 
 <svelte:head>
-  <title>System Integration Test - CryptoGigs</title>
+  <title>System Integration Test - MeritStack</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8 max-w-6xl">

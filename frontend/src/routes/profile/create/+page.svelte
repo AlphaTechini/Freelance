@@ -117,7 +117,7 @@
 </script>
 
 <svelte:head>
-  <title>Create Profile - CryptoGigs</title>
+  <title>Create Profile - MeritStack</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

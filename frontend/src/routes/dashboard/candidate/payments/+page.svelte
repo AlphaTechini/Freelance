@@ -79,7 +79,7 @@
 </script>
 
 <svelte:head>
-  <title>Payment History - CryptoGigs</title>
+  <title>Payment History - MeritStack</title>
 </svelte:head>
 
 <div class="space-y-6">

@@ -115,9 +115,14 @@ await fastify.register(jobRoutes, { prefix: '/api' });
 import candidateRoutes from './routes/candidates.js';
 await fastify.register(candidateRoutes, { prefix: '/api' });
 
+// Favicon endpoint to prevent 500 errors
+fastify.get('/favicon.ico', async (request, reply) => {
+  return reply.code(204).send();
+});
+
 // Test endpoint
 fastify.get('/api/test', async (request, reply) => {
-  return { message: 'CryptoGigs API is running!' };
+  return { message: 'MeritStack API is running!' };
 });
 
 // Start server

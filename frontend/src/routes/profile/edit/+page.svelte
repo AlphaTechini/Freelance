@@ -230,7 +230,7 @@
 </script>
 
 <svelte:head>
-  <title>Edit Profile - CryptoGigs</title>
+  <title>Edit Profile - MeritStack</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

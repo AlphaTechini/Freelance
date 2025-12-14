@@ -1,7 +1,7 @@
 {
-  "name": "cryptogigs-backend",
+  "name": "meritstack-backend",
   "version": "1.0.0",
-  "description": "CryptoGigs backend API server",
+  "description": "MeritStack backend API server",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -37,6 +37,6 @@
     "freelance",
     "blockchain"
   ],
-  "author": "CryptoGigs Team",
+  "author": "MeritStack Team",
   "license": "MIT"
 }

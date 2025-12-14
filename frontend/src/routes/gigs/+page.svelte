@@ -116,7 +116,7 @@
 </script>
 
 <svelte:head>
-  <title>Browse Gigs - CryptoGigs</title>
+  <title>Browse Gigs - MeritStack</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

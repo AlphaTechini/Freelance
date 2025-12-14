@@ -38,7 +38,7 @@
 </script>
 
 <svelte:head>
-  <title>Profile - CryptoGigs</title>
+  <title>Profile - MeritStack</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

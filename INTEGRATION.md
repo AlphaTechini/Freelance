@@ -1,10 +1,10 @@
-# CryptoGigs Platform Integration Guide
+# MeritStack Platform Integration Guide
 
-This document describes how all components of the CryptoGigs platform are integrated and provides testing procedures to verify the system works end-to-end.
+This document describes how all components of the MeritStack platform are integrated and provides testing procedures to verify the system works end-to-end.
 
 ## System Architecture Overview
 
-The CryptoGigs platform consists of several integrated components:
+The MeritStack platform consists of several integrated components:
 
 ### Frontend (Svelte 5)
 - **Authentication**: Firebase Auth + Wallet-based authentication
@@ -251,8 +251,8 @@ vercel deploy
 ### 2. Backend Deployment (Render/Cloud Run)
 ```bash
 cd Server
-docker build -t cryptogigs-api .
-docker push [registry]/cryptogigs-api
+docker build -t meritstack-api .
+docker push [registry]/meritstack-api
 ```
 
 ### 3. Database Setup

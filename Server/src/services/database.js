@@ -12,7 +12,7 @@ export const connectDatabase = async () => {
   }
 
   try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/cryptogigs';
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/meritstack';
     
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 5000,

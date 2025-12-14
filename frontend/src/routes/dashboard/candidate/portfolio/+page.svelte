@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-  <title>Portfolio Analysis - CryptoGigs</title>
+  <title>Portfolio Analysis - MeritStack</title>
 </svelte:head>
 
 <div class="space-y-6">
