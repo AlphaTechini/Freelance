@@ -7,6 +7,9 @@
   import { withWarmupHandling } from '$lib/utils/api-wrapper.js';
   import Navbar from '$lib/components/Navbar.svelte';
   
+  // Declare children as a snippet prop for Svelte 5
+  let { children } = $props();
+  
   let loading = $state(true);
   let error = $state('');
   

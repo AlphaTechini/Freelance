@@ -9,6 +9,9 @@
   import WarmupStatus from '$lib/components/WarmupStatus.svelte';
   import '../app.css';
 
+  // Declare children as a snippet prop for Svelte 5
+  let { children } = $props();
+
   // Check if current route is an auth page
   let isAuthPage = $derived($page.url.pathname.startsWith('/auth'));
 
