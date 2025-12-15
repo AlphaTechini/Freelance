@@ -38,7 +38,16 @@ export const connectMetaMask = async () => {
     const signer = await provider.getSigner();
     const address = await signer.getAddress();
     const network = await provider.getNetwork();
-    const balance = await provider.getBalance(address);
+    
+    // Try to get balance with error handling
+    let balance = '0';
+    try {
+      const balanceWei = await provider.getBalance(address);
+      balance = ethers.formatEther(balanceWei);
+    } catch (balanceError) {
+      console.warn('Could not fetch balance, using default:', balanceError.message);
+      // Continue without balance - it's not critical for authentication
+    }
 
     // Update store
     walletStore.set({
@@ -47,7 +56,7 @@ export const connectMetaMask = async () => {
       provider,
       signer,
       chainId: Number(network.chainId),
-      balance: ethers.formatEther(balance),
+      balance,
       walletType: WALLET_TYPES.METAMASK
     });
 
@@ -216,26 +225,34 @@ const addNetwork = async (chainId) => {
   });
 };
 
-// Get wallet balance
-export const updateBalance = async () => {
-  const wallet = await new Promise((resolve) => {
-    walletStore.subscribe((value) => {
-      resolve(value);
-    })();
-  });
+// Get wallet balance with retry logic
+export const updateBalance = async (retries = 3) => {
+  const wallet = get(walletStore);
 
   if (!wallet.provider || !wallet.address) {
     return;
   }
 
-  try {
-    const balance = await wallet.provider.getBalance(wallet.address);
-    walletStore.update((store) => ({
-      ...store,
-      balance: ethers.formatEther(balance)
-    }));
-  } catch (error) {
-    console.error('Error updating balance:', error);
+  for (let i = 0; i < retries; i++) {
+    try {
+      const balance = await wallet.provider.getBalance(wallet.address);
+      walletStore.update((store) => ({
+        ...store,
+        balance: ethers.formatEther(balance)
+      }));
+      return; // Success, exit retry loop
+    } catch (error) {
+      console.warn(`Balance fetch attempt ${i + 1} failed:`, error.message);
+      
+      if (i === retries - 1) {
+        // Last attempt failed, log error but don't throw
+        console.error('Failed to update balance after all retries:', error);
+        return;
+      }
+      
+      // Wait before retry (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
   }
 };
 
