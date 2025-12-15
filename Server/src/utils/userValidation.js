@@ -13,7 +13,7 @@ export const validateUserCreation = (userData) => {
   if (!userData.walletAddress) {
     errors.push('Wallet address is required');
   } else if (!isValidEthereumAddress(userData.walletAddress)) {
-    errors.push('Invalid Ethereum wallet address');
+    errors.push('Invalid wallet address');
   }
   
   // Validate email
@@ -91,7 +91,7 @@ export const validateUserUpdate = (updateData) => {
   
   // Validate wallet address if provided (should not be updated normally)
   if (updateData.walletAddress !== undefined && !isValidEthereumAddress(updateData.walletAddress)) {
-    errors.push('Invalid Ethereum wallet address');
+    errors.push('Invalid wallet address');
   }
   
   // Validate preferred tokens if provided

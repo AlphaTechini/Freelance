@@ -202,7 +202,7 @@
             <div>
               <p class="text-sm text-gray-600 dark:text-gray-400">Balance</p>
               <p class="text-lg font-medium text-gray-900 dark:text-white">
-                {parseFloat($walletStore.balance).toFixed(4)} ETH
+                {parseFloat($walletStore.balance).toFixed(4)} tBNB
               </p>
             </div>
 

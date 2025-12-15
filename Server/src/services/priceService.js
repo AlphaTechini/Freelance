@@ -25,7 +25,7 @@ export const getCryptoPrices = async () => {
     
     // Fetch from CoinGecko API
     const response = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=tether,ethereum,bitcoin&vs_currencies=usd',
+      'https://api.coingecko.com/api/v3/simple/price?ids=tether,binancecoin,bitcoin&vs_currencies=usd',
       {
         headers: {
           'Accept': 'application/json'
@@ -42,7 +42,7 @@ export const getCryptoPrices = async () => {
     // Transform data to our format
     const prices = {
       USDT: data.tether?.usd || 1,
-      ETH: data.ethereum?.usd || 0,
+      BNB: data.binancecoin?.usd || 0,
       BTC: data.bitcoin?.usd || 0
     };
     

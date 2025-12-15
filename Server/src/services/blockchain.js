@@ -3,19 +3,15 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize providers for different networks
-export const getEthereumProvider = () => {
-  return new ethers.JsonRpcProvider(process.env.ETHEREUM_RPC_URL);
+// Initialize providers for BNB Smart Chain Testnet
+export const getBSCTestnetProvider = () => {
+  return new ethers.JsonRpcProvider(process.env.BSC_TESTNET_RPC_URL || 'https://data-seed-prebsc-1-s1.binance.org:8545');
 };
 
-export const getPolygonProvider = () => {
-  return new ethers.JsonRpcProvider(process.env.POLYGON_RPC_URL);
-};
-
-// Verify transaction on blockchain
-export const verifyTransaction = async (txHash, network = 'ethereum') => {
+// Verify transaction on BNB Smart Chain Testnet
+export const verifyTransaction = async (txHash, network = 'bsc-testnet') => {
   try {
-    const provider = network === 'polygon' ? getPolygonProvider() : getEthereumProvider();
+    const provider = getBSCTestnetProvider();
     const tx = await provider.getTransaction(txHash);
     
     if (!tx) {
@@ -35,20 +31,20 @@ export const verifyTransaction = async (txHash, network = 'ethereum') => {
   }
 };
 
-// Get wallet balance for specific token
-export const getWalletBalance = async (walletAddress, tokenAddress = null, network = 'ethereum') => {
+// Get wallet balance for BNB Smart Chain Testnet
+export const getWalletBalance = async (walletAddress, tokenAddress = null, network = 'bsc-testnet') => {
   try {
-    const provider = network === 'polygon' ? getPolygonProvider() : getEthereumProvider();
+    const provider = getBSCTestnetProvider();
     
     if (!tokenAddress) {
-      // Get native token balance (ETH/MATIC)
+      // Get native token balance (tBNB)
       const balance = await provider.getBalance(walletAddress);
       return {
         balance: ethers.formatEther(balance),
-        symbol: network === 'polygon' ? 'MATIC' : 'ETH'
+        symbol: 'tBNB'
       };
     } else {
-      // Get ERC20 token balance
+      // Get BEP20 token balance
       const tokenContract = new ethers.Contract(
         tokenAddress,
         ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'],

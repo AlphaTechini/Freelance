@@ -18,20 +18,20 @@ MeritStack is a revolutionary decentralized freelance platform that combines AI-
 - Unfair dispute resolution processes
 
 **MeritStack eliminates these pain points by providing:**
-- ✅ **Zero-fee crypto payments** with instant settlements
+- ✅ **Zero-fee crypto payments** with instant settlements on BNB Smart Chain
 - ✅ **AI-powered portfolio analysis** with actionable insights
 - ✅ **Intelligent candidate matching** based on skills, experience, and project quality
-- ✅ **Transparent blockchain transactions** with full audit trails
+- ✅ **Transparent blockchain transactions** with full audit trails on BSC Testnet
 - ✅ **Global accessibility** without banking restrictions
 - ✅ **Decentralized escrow system** for secure payments
-- ✅ **Real-time earnings tracking** in multiple cryptocurrencies
+- ✅ **Real-time earnings tracking** in testnet cryptocurrencies
 
 ## 🌟 Key Features
 
 ### For Freelancers & Talent
 - **AI Portfolio Review**: Get detailed analysis of your GitHub repos and portfolio websites
 - **Smart Skill Matching**: Automatically matched to relevant opportunities
-- **Crypto Earnings**: Receive payments in ETH, USDC, or platform tokens
+- **Crypto Earnings**: Receive payments in tBNB, USDT, or platform tokens
 - **Performance Analytics**: Track your profile score and improvement areas
 - **Global Reach**: Work with clients worldwide without payment barriers
 
@@ -66,9 +66,9 @@ MeritStack is a revolutionary decentralized freelance platform that combines AI-
 
 ### Blockchain Integration
 - **Smart Contracts**: Solidity-based escrow system
-- **Networks**: Ethereum mainnet and testnets
+- **Networks**: BNB Smart Chain Testnet
 - **Wallets**: MetaMask, WalletConnect support
-- **Tokens**: ETH, USDC, and custom platform tokens
+- **Tokens**: tBNB (Testnet BNB), USDT, and custom platform tokens
 
 ### AI & Analytics
 - **Portfolio Analysis**: Web scraping + GitHub API analysis

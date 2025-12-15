@@ -94,19 +94,28 @@ FRONTEND_URL=https://your-frontend-domain.com
 
 ## 🔧 Optional Enhancements
 
-### 1. Ethereum/Polygon RPC URLs
-**Purpose:** Crypto payment functionality (currently using dummy values)
+### 1. BNB Smart Chain Testnet Configuration
+**Purpose:** Crypto payment functionality using BNB Smart Chain Testnet
 
-**How to get:**
-1. Sign up at [Infura](https://infura.io) or [Alchemy](https://alchemy.com)
-2. Create new project
-3. Get RPC endpoints
+**Network Details:**
+- **Network Name:** BNB Smart Chain Testnet
+- **RPC URL:** https://data-seed-prebsc-1-s1.binance.org:8545 (or https://data-seed-prebsc-2-s1.binance.org:8545)
+- **Chain ID:** 97 (0x61 in hexadecimal)
+- **Currency Symbol:** tBNB (Testnet BNB)
+- **Block Explorer:** https://testnet.bscscan.com
 
 **Environment Variables:** (in `frontend/.env`)
 ```
-VITE_ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/your_project_id
-VITE_POLYGON_RPC_URL=https://polygon-mainnet.infura.io/v3/your_project_id
+VITE_BSC_TESTNET_RPC_URL=https://data-seed-prebsc-1-s1.binance.org:8545
+VITE_BSC_TESTNET_CHAIN_ID=97
+VITE_BSC_TESTNET_CURRENCY_SYMBOL=tBNB
+VITE_BSC_TESTNET_EXPLORER_URL=https://testnet.bscscan.com
 ```
+
+**Getting Testnet BNB:**
+1. Visit [BNB Smart Chain Testnet Faucet](https://testnet.binance.org/faucet-smart)
+2. Connect your wallet
+3. Request testnet BNB tokens for testing
 
 ### 2. Email Service (SendGrid/Mailgun)
 **Purpose:** Automated hiring emails and notifications

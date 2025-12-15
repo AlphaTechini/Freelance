@@ -191,16 +191,16 @@ export const switchNetwork = async (chainId) => {
 // Add network to MetaMask
 const addNetwork = async (chainId) => {
   const networks = {
-    137: {
-      chainId: '0x89',
-      chainName: 'Polygon Mainnet',
+    97: {
+      chainId: '0x61',
+      chainName: 'BNB Smart Chain Testnet',
       nativeCurrency: {
-        name: 'MATIC',
-        symbol: 'MATIC',
+        name: 'tBNB',
+        symbol: 'tBNB',
         decimals: 18,
       },
-      rpcUrls: ['https://polygon-rpc.com/'],
-      blockExplorerUrls: ['https://polygonscan.com/'],
+      rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545', 'https://data-seed-prebsc-2-s1.binance.org:8545'],
+      blockExplorerUrls: ['https://testnet.bscscan.com/'],
     },
     // Add more networks as needed
   };
