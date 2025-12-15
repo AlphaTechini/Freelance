@@ -67,7 +67,7 @@ export default async function authRoutes(fastify, options) {
           walletAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
           signature: { type: 'string' },
           nonce: { type: 'string' },
-          firebaseToken: { type: 'string' }
+          jwtToken: { type: 'string' }
         }
       },
       response: {
@@ -87,7 +87,7 @@ export default async function authRoutes(fastify, options) {
       }
     }
   }, async (request, reply) => {
-    const { walletAddress, signature, nonce, firebaseToken } = request.body;
+    const { walletAddress, signature, nonce, jwtToken } = request.body;
     
     const normalizedAddress = walletAddress.toLowerCase();
     
@@ -123,10 +123,10 @@ export default async function authRoutes(fastify, options) {
       // Create JWT payload
       const payload = {
         walletAddress: normalizedAddress,
-        firebaseUid: firebaseToken ? 'firebase-uid-placeholder' : null, // Will be validated separately
         userId: user?._id?.toString() || null,
         username: user?.username || null,
-        role: user?.role || null
+        role: user?.role || null,
+        email: user?.email || null
       };
       
       // Sign JWT token
@@ -158,11 +158,11 @@ export default async function authRoutes(fastify, options) {
   fastify.post('/auth/refresh', {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
-    const { walletAddress, firebaseUid } = request.user;
+    const { walletAddress, userId, username, role, email } = request.user;
     
     // Issue new token
     const token = fastify.jwt.sign(
-      { walletAddress, firebaseUid },
+      { walletAddress, userId, username, role, email },
       { expiresIn: '7d' }
     );
     
@@ -299,7 +299,6 @@ export default async function authRoutes(fastify, options) {
       // Create user profile
       const userData = {
         username,
-        firebaseUid: firebaseUid || `wallet_${walletAddress}`,
         walletAddress,
         email,
         displayName,
@@ -312,10 +311,10 @@ export default async function authRoutes(fastify, options) {
       const token = fastify.jwt.sign(
         { 
           walletAddress, 
-          firebaseUid: userData.firebaseUid,
           userId: user._id.toString(),
           username: user.username,
-          role: user.role
+          role: user.role,
+          email: user.email
         },
         { expiresIn: '7d' }
       );
@@ -337,21 +336,21 @@ export default async function authRoutes(fastify, options) {
     }
   });
   
-  // Register user with Firebase (email/password registration)
-  fastify.post('/auth/register-firebase', {
+  // Register user with email/password (MongoDB only)
+  fastify.post('/auth/register-email', {
     schema: {
       body: {
         type: 'object',
-        required: ['username', 'email', 'displayName', 'role', 'firebaseUid', 'walletAddress'],
+        required: ['username', 'email', 'password', 'displayName', 'role'],
         properties: {
           username: { type: 'string', minLength: 3, maxLength: 30 },
           email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 6 },
           displayName: { type: 'string', minLength: 2, maxLength: 50 },
           role: { 
             type: 'string', 
             enum: ['freelancer', 'recruiter', 'student', 'graduate', 'phd'] 
           },
-          firebaseUid: { type: 'string' },
           walletAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
         }
       },
@@ -368,7 +367,7 @@ export default async function authRoutes(fastify, options) {
     }
   }, async (request, reply) => {
     try {
-      const { username, email, displayName, role, firebaseUid, walletAddress } = request.body;
+      const { username, email, password, displayName, role, walletAddress } = request.body;
       
       // Validate username format
       const usernameRegex = /^[a-z0-9_-]+$/;
@@ -394,12 +393,24 @@ export default async function authRoutes(fastify, options) {
         });
       }
       
+      // Check email availability
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        return reply.code(400).send({
+          success: false,
+          error: {
+            code: 'EMAIL_TAKEN',
+            message: 'This email is already registered'
+          }
+        });
+      }
+      
       // Create user profile
       const userData = {
         username,
-        firebaseUid,
-        walletAddress,
-        email,
+        email: email.toLowerCase(),
+        password, // Will be hashed in the User model
+        walletAddress: walletAddress?.toLowerCase(),
         displayName,
         role
       };
@@ -409,11 +420,11 @@ export default async function authRoutes(fastify, options) {
       // Create JWT token
       const token = fastify.jwt.sign(
         { 
-          walletAddress, 
-          firebaseUid,
+          walletAddress: user.walletAddress, 
           userId: user._id.toString(),
           username: user.username,
-          role: user.role
+          role: user.role,
+          email: user.email
         },
         { expiresIn: '7d' }
       );
@@ -424,12 +435,99 @@ export default async function authRoutes(fastify, options) {
         token
       };
     } catch (error) {
-      fastify.log.error('Firebase registration error:', error);
+      fastify.log.error('Email registration error:', error);
       return reply.code(400).send({
         success: false,
         error: {
           code: 'REGISTRATION_FAILED',
           message: error.message
+        }
+      });
+    }
+  });
+
+  // Login with email/password (MongoDB only)
+  fastify.post('/auth/login-email', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            user: { type: 'object' },
+            token: { type: 'string' }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { email, password } = request.body;
+      
+      // Find user by email
+      const user = await User.findOne({ email: email.toLowerCase() });
+      if (!user) {
+        return reply.code(401).send({
+          success: false,
+          error: {
+            code: 'INVALID_CREDENTIALS',
+            message: 'Invalid email or password'
+          }
+        });
+      }
+      
+      // Verify password
+      const isValidPassword = await user.comparePassword(password);
+      if (!isValidPassword) {
+        return reply.code(401).send({
+          success: false,
+          error: {
+            code: 'INVALID_CREDENTIALS',
+            message: 'Invalid email or password'
+          }
+        });
+      }
+      
+      // Create JWT token
+      const token = fastify.jwt.sign(
+        { 
+          walletAddress: user.walletAddress, 
+          userId: user._id.toString(),
+          username: user.username,
+          role: user.role,
+          email: user.email
+        },
+        { expiresIn: '7d' }
+      );
+      
+      return {
+        success: true,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          displayName: user.displayName,
+          profileImage: user.profileImage,
+          role: user.role,
+          walletAddress: user.walletAddress
+        },
+        token
+      };
+    } catch (error) {
+      fastify.log.error('Email login error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: {
+          code: 'LOGIN_FAILED',
+          message: 'Login failed. Please try again.'
         }
       });
     }

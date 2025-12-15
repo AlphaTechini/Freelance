@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
 
 const userSchema = new mongoose.Schema({
   // Username for authentication (Requirement 1.5)
@@ -14,19 +15,20 @@ const userSchema = new mongoose.Schema({
     index: true
   },
   
-  // Firebase UID for authentication linkage
-  firebaseUid: {
+  // Password for email authentication
+  password: {
     type: String,
-    required: true,
-    unique: true,
-    index: true
+    required: function() {
+      return !this.walletAddress; // Password required if no wallet
+    },
+    minlength: 6
   },
   
-  // Wallet information (Requirement 1.4)
+  // Wallet information (optional for email-only users)
   walletAddress: {
     type: String,
-    required: true,
     unique: true,
+    sparse: true, // Allows multiple null values
     lowercase: true,
     index: true
   },
@@ -184,9 +186,10 @@ userSchema.statics.findByWallet = function(walletAddress) {
   return this.findOne({ walletAddress: walletAddress.toLowerCase() });
 };
 
-// Static method to find by Firebase UID
-userSchema.statics.findByFirebaseUid = function(firebaseUid) {
-  return this.findOne({ firebaseUid });
+// Method to compare password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) return false;
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Static method to find by username
@@ -220,9 +223,16 @@ userSchema.statics.searchUsers = function(query, options = {}) {
     .select('-firebaseUid -__v');
 };
 
-// Pre-save middleware to ensure wallet address and username are lowercase
-userSchema.pre('save', function(next) {
-  if (this.isModified('walletAddress')) {
+// Pre-save middleware to hash password and normalize fields
+userSchema.pre('save', async function(next) {
+  // Hash password if modified
+  if (this.isModified('password') && this.password) {
+    const saltRounds = 12;
+    this.password = await bcrypt.hash(this.password, saltRounds);
+  }
+  
+  // Normalize fields
+  if (this.isModified('walletAddress') && this.walletAddress) {
     this.walletAddress = this.walletAddress.toLowerCase();
   }
   if (this.isModified('email')) {

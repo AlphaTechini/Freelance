@@ -4,6 +4,7 @@
   import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth.js';
   import { apiService } from '$lib/services/api.js';
+  import { withWarmupHandling } from '$lib/utils/api-wrapper.js';
   import Navbar from '$lib/components/Navbar.svelte';
   
   let loading = $state(true);
@@ -19,7 +20,10 @@
     // Load user profile if not already loaded
     if ($authStore.user && !$authStore.user.profile) {
       try {
-        const response = await apiService.getProfile();
+        const response = await withWarmupHandling(
+          () => apiService.getProfile(),
+          { showToast: false, retries: 5, retryDelay: 2000 }
+        );
         if (response.success && response.user) {
           authStore.update(store => ({
             ...store,
@@ -27,7 +31,12 @@
           }));
         }
       } catch (err) {
-        error = 'Failed to load profile: ' + err.message;
+        // More user-friendly error message during warmup
+        if (err.message.includes('fetch') || err.message.includes('NetworkError')) {
+          error = 'Backend is starting up, please wait a moment...';
+        } else {
+          error = 'Failed to load profile: ' + err.message;
+        }
       }
     }
     

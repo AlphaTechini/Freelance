@@ -37,7 +37,8 @@
       <!-- Logo -->
       <div class="flex items-center">
         <a href="/" class="logo">
-          Kiro
+          <img src="/icon.png" alt="Kiro" class="logo-icon" />
+          <span class="logo-text">Kiro</span>
         </a>
       </div>
 
@@ -261,14 +262,32 @@
   }
 
   .logo {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--accent-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     text-decoration: none;
-    transition: color 0.2s ease;
+    transition: all 0.2s ease;
   }
 
   .logo:hover {
+    transform: scale(1.05);
+  }
+
+  .logo-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 6px;
+    object-fit: contain;
+  }
+
+  .logo-text {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    transition: color 0.2s ease;
+  }
+
+  .logo:hover .logo-text {
     color: var(--accent-hover);
   }
 

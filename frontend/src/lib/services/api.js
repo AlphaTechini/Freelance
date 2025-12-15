@@ -112,10 +112,25 @@ class ApiService {
   // Health check
   async healthCheck() {
     try {
-      const response = await fetch(`${this.baseURL.replace('/api', '')}/health`);
+      const response = await fetch(`${this.baseURL.replace('/api', '')}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout for warmup scenarios
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.status}`);
+      }
+      
       return await response.json();
     } catch (error) {
-      console.error('Health check failed:', error);
+      // Don't log errors during warmup to avoid console spam
+      if (error.name !== 'TimeoutError') {
+        console.error('Health check failed:', error);
+      }
       throw error;
     }
   }
@@ -133,12 +148,12 @@ class ApiService {
   }
 
   // Verify wallet signature and get JWT token
-  async verifyWalletSignature(walletAddress, signature, nonce, firebaseToken = null) {
+  async verifyWalletSignature(walletAddress, signature, nonce, jwtToken = null) {
     const response = await this.post('/auth/wallet-verify', {
       walletAddress,
       signature,
       nonce,
-      firebaseToken
+      jwtToken
     });
     
     // Set the token for future requests
@@ -159,11 +174,23 @@ class ApiService {
     return this.get('/auth/profile');
   }
 
-  // Register user with role
-  async registerUser(userData, firebaseToken) {
-    // Temporarily set the Firebase token for registration
+  // Register user with email/password
+  async registerWithEmail(userData) {
+    return this.post('/auth/register-email', userData);
+  }
+
+  // Login with email/password
+  async loginWithEmail(credentials) {
+    return this.post('/auth/login-email', credentials);
+  }
+
+  // Register user with wallet (after wallet verification)
+  async registerUser(userData, jwtToken = null) {
+    // Temporarily set the JWT token for registration if provided
     const previousToken = this.token;
-    this.setToken(firebaseToken);
+    if (jwtToken) {
+      this.setToken(jwtToken);
+    }
     
     try {
       const response = await this.post('/auth/register', userData);
