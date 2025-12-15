@@ -6,7 +6,7 @@
 </script>
 
 <div class="loading-container" class:inline>
-  <div class="spinner" class:spinner-sm={size === 'sm'} class:spinner-lg={size === 'lg'} class:spinner-{color}></div>
+  <div class="spinner" class:spinner-sm={size === 'sm'} class:spinner-lg={size === 'lg'} class:spinner-primary={color === 'primary'} class:spinner-secondary={color === 'secondary'} class:spinner-white={color === 'white'}></div>
   {#if text}
     <p class="loading-text">{text}</p>
   {/if}

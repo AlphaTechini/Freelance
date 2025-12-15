@@ -17,10 +17,10 @@
     // Check initial status
     updateStatus();
     
-    // Update status every second while warming up
+    // Update status every 3 seconds while warming up (less frequent)
     statusInterval = setInterval(() => {
       updateStatus();
-    }, 1000);
+    }, 3000);
   });
 
   onDestroy(() => {

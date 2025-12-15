@@ -18,33 +18,51 @@ dotenv.config();
 
 const fastify = Fastify({
   logger: {
-    level: process.env.LOG_LEVEL || 'info'
+    level: process.env.LOG_LEVEL || 'info',
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: true
+      }
+    }
   }
 });
 
 // Register plugins
-await fastify.register(cors, {
-  origin: [
-    'https://freelance-orpin-omega.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ],
-  credentials: true
-});
+try {
+  console.log('📦 Registering CORS plugin...');
+  await fastify.register(cors, {
+    origin: [
+      'https://freelance-orpin-omega.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ],
+    credentials: true
+  });
 
-await fastify.register(rateLimit, {
-  max: 100,
-  timeWindow: '1 minute'
-});
+  console.log('🚦 Registering rate limit plugin...');
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute'
+  });
 
-await fastify.register(jwt, {
-  secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production'
-});
+  console.log('🔐 Registering JWT plugin...');
+  await fastify.register(jwt, {
+    secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+  });
 
-await fastify.register(multipart);
+  console.log('📎 Registering multipart plugin...');
+  await fastify.register(multipart);
 
-// Decorate fastify with authenticate method
-fastify.decorate('authenticate', authenticateToken);
+  console.log('🔧 Decorating fastify with authenticate method...');
+  // Decorate fastify with authenticate method
+  fastify.decorate('authenticate', authenticateToken);
+  
+  console.log('✅ All plugins registered successfully');
+} catch (error) {
+  console.error('❌ Plugin registration failed:', error);
+  throw error;
+}
 
 // Health check endpoint
 fastify.get('/health', async (request, reply) => {
@@ -128,11 +146,16 @@ fastify.get('/api/test', async (request, reply) => {
 // Start server
 const start = async () => {
   try {
+    console.log('🚀 Starting MeritStack server...');
+    
     // Try to connect to MongoDB
     try {
+      console.log('📊 Connecting to database...');
       await connectDatabase();
+      console.log('✅ Database connected successfully');
       fastify.log.info('Database connected successfully');
     } catch (dbError) {
+      console.log('⚠️ Database connection failed, starting server without database:', dbError.message);
       fastify.log.warn('Database connection failed, starting server without database:', dbError.message);
       // Continue without database - server will still start for API testing
     }
@@ -140,9 +163,12 @@ const start = async () => {
     const port = process.env.PORT || 3000;
     const host = process.env.HOST || '0.0.0.0';
     
+    console.log(`🌐 Starting server on ${host}:${port}...`);
     await fastify.listen({ port, host });
+    console.log(`✅ Server listening on http://${host}:${port}`);
     fastify.log.info(`Server listening on http://${host}:${port}`);
   } catch (err) {
+    console.error('❌ Server startup failed:', err);
     fastify.log.error(err);
     process.exit(1);
   }
