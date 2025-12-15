@@ -16,52 +16,59 @@ import paymentRoutes from './routes/payments.js';
 // Load environment variables
 dotenv.config();
 
-const fastify = Fastify({
-  logger: {
-    level: process.env.LOG_LEVEL || 'info',
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true
+// Configure logger based on environment
+const loggerConfig = process.env.NODE_ENV === 'production' 
+  ? { level: process.env.LOG_LEVEL || 'info' }
+  : {
+      level: process.env.LOG_LEVEL || 'info',
+      transport: {
+        target: 'pino-pretty',
+        options: {
+          colorize: true
+        }
       }
-    }
-  }
+    };
+
+const fastify = Fastify({
+  logger: loggerConfig
 });
 
-// Register plugins
-try {
-  console.log('📦 Registering CORS plugin...');
-  await fastify.register(cors, {
-    origin: [
-      'https://freelance-orpin-omega.vercel.app',
-      'http://localhost:5173',
-      'http://localhost:3000'
-    ],
-    credentials: true
-  });
+// Register plugins function
+async function registerPlugins() {
+  try {
+    console.log('📦 Registering CORS plugin...');
+    await fastify.register(cors, {
+      origin: [
+        'https://freelance-orpin-omega.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:3000'
+      ],
+      credentials: true
+    });
 
-  console.log('🚦 Registering rate limit plugin...');
-  await fastify.register(rateLimit, {
-    max: 100,
-    timeWindow: '1 minute'
-  });
+    console.log('🚦 Registering rate limit plugin...');
+    await fastify.register(rateLimit, {
+      max: 100,
+      timeWindow: '1 minute'
+    });
 
-  console.log('🔐 Registering JWT plugin...');
-  await fastify.register(jwt, {
-    secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production'
-  });
+    console.log('🔐 Registering JWT plugin...');
+    await fastify.register(jwt, {
+      secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+    });
 
-  console.log('📎 Registering multipart plugin...');
-  await fastify.register(multipart);
+    console.log('📎 Registering multipart plugin...');
+    await fastify.register(multipart);
 
-  console.log('🔧 Decorating fastify with authenticate method...');
-  // Decorate fastify with authenticate method
-  fastify.decorate('authenticate', authenticateToken);
-  
-  console.log('✅ All plugins registered successfully');
-} catch (error) {
-  console.error('❌ Plugin registration failed:', error);
-  throw error;
+    console.log('🔧 Decorating fastify with authenticate method...');
+    // Decorate fastify with authenticate method
+    fastify.decorate('authenticate', authenticateToken);
+    
+    console.log('✅ All plugins registered successfully');
+  } catch (error) {
+    console.error('❌ Plugin registration failed:', error);
+    throw error;
+  }
 }
 
 // Health check endpoint
@@ -117,21 +124,24 @@ fastify.get('/health', async (request, reply) => {
   return reply.code(statusCode).send(health);
 });
 
-// Register API routes
-await fastify.register(authRoutes, { prefix: '/api' });
-await fastify.register(userRoutes, { prefix: '/api' });
-await fastify.register(gigRoutes, { prefix: '/api' });
-await fastify.register(priceRoutes, { prefix: '/api' });
-await fastify.register(portfolioRoutes, { prefix: '/api' });
-await fastify.register(paymentRoutes, { prefix: '/api' });
+// Register routes function
+async function registerRoutes() {
+  // Import and register job routes
+  const jobRoutes = await import('./routes/jobs.js');
+  
+  // Import and register candidate routes  
+  const candidateRoutes = await import('./routes/candidates.js');
 
-// Import and register job routes
-import jobRoutes from './routes/jobs.js';
-await fastify.register(jobRoutes, { prefix: '/api' });
-
-// Import and register candidate routes
-import candidateRoutes from './routes/candidates.js';
-await fastify.register(candidateRoutes, { prefix: '/api' });
+  // Register API routes
+  await fastify.register(authRoutes, { prefix: '/api' });
+  await fastify.register(userRoutes, { prefix: '/api' });
+  await fastify.register(gigRoutes, { prefix: '/api' });
+  await fastify.register(priceRoutes, { prefix: '/api' });
+  await fastify.register(portfolioRoutes, { prefix: '/api' });
+  await fastify.register(paymentRoutes, { prefix: '/api' });
+  await fastify.register(jobRoutes.default, { prefix: '/api' });
+  await fastify.register(candidateRoutes.default, { prefix: '/api' });
+}
 
 // Favicon endpoint to prevent 500 errors
 fastify.get('/favicon.ico', async (request, reply) => {
@@ -148,17 +158,22 @@ const start = async () => {
   try {
     console.log('🚀 Starting MeritStack server...');
     
-    // Try to connect to MongoDB
-    try {
-      console.log('📊 Connecting to database...');
-      await connectDatabase();
-      console.log('✅ Database connected successfully');
-      fastify.log.info('Database connected successfully');
-    } catch (dbError) {
-      console.log('⚠️ Database connection failed, starting server without database:', dbError.message);
-      fastify.log.warn('Database connection failed, starting server without database:', dbError.message);
-      // Continue without database - server will still start for API testing
-    }
+    // Register plugins first
+    await registerPlugins();
+    
+    // Register routes
+    await registerRoutes();
+    
+    // Try to connect to MongoDB (non-blocking)
+    connectDatabase()
+      .then(() => {
+        console.log('✅ Database connected successfully');
+        fastify.log.info('Database connected successfully');
+      })
+      .catch((dbError) => {
+        console.log('⚠️ Database connection failed, continuing without database:', dbError.message);
+        fastify.log.warn('Database connection failed, continuing without database:', dbError.message);
+      });
     
     const port = process.env.PORT || 3000;
     const host = process.env.HOST || '0.0.0.0';
