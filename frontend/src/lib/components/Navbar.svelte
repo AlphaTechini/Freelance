@@ -37,8 +37,8 @@
       <!-- Logo -->
       <div class="flex items-center">
         <a href="/" class="logo">
-          <img src="/icon.png" alt="Kiro" class="logo-icon" />
-          <span class="logo-text">Kiro</span>
+          <img src="/icon.png" alt="MeritStack" class="logo-icon" />
+          <span class="logo-text">MeritStack</span>
         </a>
       </div>
 
@@ -153,7 +153,7 @@
       <div class="md:hidden">
         <button
           onclick={toggleMobileMenu}
-          class="text-gray-700 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400"
+          class="text-gray-700 dark:text-gray-300 hover:text-indigo-500 dark:hover:text-indigo-400"
         >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {#if mobileMenuOpen}

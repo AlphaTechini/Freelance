@@ -1,11 +1,11 @@
 {
-  "name": "Kiro Talent Engine",
-  "short_name": "Kiro",
+  "name": "Merit Stack",
+  "short_name": "Merit Stack",
   "description": "AI-powered talent platform connecting recruiters with freelancers, students, and graduates",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#8b5cf6",
+  "theme_color": "#6366f1",
   "orientation": "portrait-primary",
   "icons": [
     {

@@ -14,8 +14,8 @@
   --text-primary: #212529;
   --text-secondary: #6c757d;
   --border-color: #dee2e6;
-  --accent-color: #ff6b35;
-  --accent-hover: #e55a2b;
+  --accent-color: #6366f1;
+  --accent-hover: #5855eb;
   --success-color: #28a745;
   --warning-color: #ffc107;
   --error-color: #dc3545;
@@ -29,8 +29,8 @@
   --text-primary: #ffffff;
   --text-secondary: #b0b0b0;
   --border-color: #404040;
-  --accent-color: #ff6b35;
-  --accent-hover: #ff7f4d;
+  --accent-color: #6366f1;
+  --accent-hover: #5855eb;
   --success-color: #4caf50;
   --warning-color: #ffeb3b;
   --error-color: #f44336;
@@ -229,7 +229,7 @@ body {
 .form-input:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .form-input::placeholder {
@@ -272,7 +272,7 @@ body {
 .form-select:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 /* Textarea Styles */
@@ -293,7 +293,7 @@ body {
 .form-textarea:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 /* Loading Skeleton */

@@ -33,7 +33,7 @@
 </script>
 
 <svelte:head>
-  <title>Kiro Talent Engine - AI-Powered Talent Platform</title>
+  <title>MeritStack - AI-Powered Talent Platform</title>
   <meta name="description" content="Connect recruiters with top talent using AI-powered portfolio analysis and smart matching" />
 </svelte:head>
 
@@ -43,7 +43,7 @@
     <ResponsiveLayout variant="centered" class="text-center py-20">
       <div class="max-w-4xl mx-auto fade-in">
         <h1 class="heading-1 mb-6 text-accent">
-          Kiro Talent Engine
+          MeritStack
         </h1>
         <p class="body-large mb-8 max-w-2xl mx-auto">
           The universal AI-powered talent platform connecting recruiters with freelancers, 
@@ -77,7 +77,7 @@
   <section class="features-section py-20" style="background-color: var(--bg-secondary);">
     <ResponsiveLayout maxWidth="xl">
       <div class="text-center mb-16">
-        <h2 class="heading-2 mb-4">Why Choose Kiro?</h2>
+        <h2 class="heading-2 mb-4">Why Choose MeritStack?</h2>
         <p class="body-large text-secondary max-w-2xl mx-auto">
           Experience the future of talent matching with AI-driven insights and seamless crypto payments
         </p>
@@ -150,7 +150,7 @@
       <div class="max-w-2xl mx-auto">
         <h2 class="heading-2 mb-4">Ready to Transform Your Career?</h2>
         <p class="body-large text-secondary mb-8">
-          Join thousands of professionals who trust Kiro for their talent needs
+          Join thousands of professionals who trust MeritStack for their talent needs
         </p>
         <Button 
           variant="primary" 
