@@ -61,43 +61,65 @@ export const initializeAuth = () => {
   });
 };
 
-// Sign up with email and password (MongoDB only)
-export const signUp = async (username, email, password, displayName, role, walletAddress = null) => {
+// Sign up with wallet (wallet-only registration)
+export const signUpWithWallet = async (username, email, displayName, role, walletType = WALLET_TYPES.METAMASK) => {
   try {
     authStore.update(store => ({ ...store, loading: true, error: null }));
+
+    // Step 1: Connect wallet first
+    const { address } = await connectWallet(walletType);
     
-    // Register user in backend
-    const response = await withWarmupHandling(
-      () => apiService.registerWithEmail({
-        username,
-        email,
-        password,
-        displayName,
-        role,
-        walletAddress
-      }),
+    // Step 2: Request nonce from backend
+    const { nonce } = await withWarmupHandling(
+      () => apiService.requestNonce(address),
       { retries: 5, retryDelay: 2000 }
     );
-    
-    if (response.success) {
-      // Store auth data
-      localStorage.setItem('auth_token', response.token);
-      localStorage.setItem('auth_user', JSON.stringify(response.user));
-      
-      // Set token in API service
-      apiService.setToken(response.token);
-      
-      // Update store
-      authStore.update(store => ({
-        ...store,
-        user: response.user,
-        loading: false,
-        error: null
-      }));
-      
-      return response.user;
+
+    // Step 3: Sign authentication message
+    const signature = await signAuthMessage(nonce);
+
+    // Step 4: Verify signature and get JWT
+    const { token, user, isNewUser } = await withWarmupHandling(
+      () => apiService.verifyWalletSignature(address, signature, nonce),
+      { retries: 3, retryDelay: 1500 }
+    );
+
+    // Step 5: If new user, register with profile data
+    if (isNewUser) {
+      const registrationResponse = await withWarmupHandling(
+        () => apiService.registerUser({
+          username,
+          email,
+          displayName,
+          role
+        }, token),
+        { retries: 3, retryDelay: 1500 }
+      );
+
+      if (registrationResponse.success) {
+        // Store auth data
+        localStorage.setItem('auth_token', registrationResponse.token);
+        localStorage.setItem('auth_user', JSON.stringify(registrationResponse.user));
+        
+        // Set token in API service
+        apiService.setToken(registrationResponse.token);
+        
+        // Update store
+        authStore.update(store => ({
+          ...store,
+          user: registrationResponse.user,
+          walletAddress: address,
+          isWalletConnected: true,
+          loading: false,
+          error: null
+        }));
+        
+        return registrationResponse.user;
+      } else {
+        throw new Error(registrationResponse.error?.message || 'Registration failed');
+      }
     } else {
-      throw new Error(response.error?.message || 'Registration failed');
+      throw new Error('User already exists. Please sign in instead.');
     }
   } catch (error) {
     authStore.update(store => ({ ...store, loading: false, error: error.message }));
@@ -105,38 +127,58 @@ export const signUp = async (username, email, password, displayName, role, walle
   }
 };
 
-// Sign in with email and password (MongoDB only)
-export const signIn = async (email, password) => {
+// Sign in with wallet (wallet-only authentication)
+export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
   try {
     authStore.update(store => ({ ...store, loading: true, error: null }));
-    
-    const response = await withWarmupHandling(
-      () => apiService.loginWithEmail({ email, password }),
+
+    // Step 1: Connect wallet
+    const { address } = await connectWallet(walletType);
+
+    // Step 2: Request nonce from backend
+    const { nonce } = await withWarmupHandling(
+      () => apiService.requestNonce(address),
       { retries: 5, retryDelay: 2000 }
     );
+
+    // Step 3: Sign authentication message
+    const signature = await signAuthMessage(nonce);
+
+    // Step 4: Verify signature and get JWT
+    const { token, user, isNewUser } = await withWarmupHandling(
+      () => apiService.verifyWalletSignature(address, signature, nonce),
+      { retries: 3, retryDelay: 1500 }
+    );
     
-    if (response.success) {
-      // Store auth data
-      localStorage.setItem('auth_token', response.token);
-      localStorage.setItem('auth_user', JSON.stringify(response.user));
-      
-      // Set token in API service
-      apiService.setToken(response.token);
-      
-      // Update store
-      authStore.update(store => ({
-        ...store,
-        user: response.user,
-        loading: false,
-        error: null
-      }));
-      
-      return response.user;
-    } else {
-      throw new Error(response.error?.message || 'Login failed');
+    if (isNewUser) {
+      throw new Error('No account found. Please register first.');
     }
+
+    // Store auth data
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('auth_user', JSON.stringify(user));
+    
+    // Set token in API service
+    apiService.setToken(token);
+
+    // Update auth store
+    authStore.update(store => ({
+      ...store,
+      user,
+      walletAddress: address,
+      isWalletConnected: true,
+      loading: false,
+      error: null
+    }));
+
+    return user;
   } catch (error) {
-    authStore.update(store => ({ ...store, loading: false, error: error.message }));
+    console.error('Wallet authentication failed:', error);
+    authStore.update(store => ({
+      ...store,
+      loading: false,
+      error: error.message
+    }));
     throw error;
   }
 };
@@ -230,56 +272,7 @@ export const authenticateWithWallet = async (walletType = WALLET_TYPES.METAMASK)
   }
 };
 
-// Combined authentication: Email + Wallet
-export const signUpWithWallet = async (username, email, password, displayName, role, walletType = WALLET_TYPES.METAMASK) => {
-  try {
-    authStore.update(store => ({ ...store, loading: true, error: null }));
 
-    // Step 1: Connect wallet first
-    const { address } = await connectWallet(walletType);
-    
-    // Step 2: Register with email and wallet
-    const user = await signUp(username, email, password, displayName, role, address);
-
-    return user;
-  } catch (error) {
-    console.error('Sign up with wallet failed:', error);
-    authStore.update(store => ({
-      ...store,
-      loading: false,
-      error: error.message
-    }));
-    throw error;
-  }
-};
-
-// Sign in with email and link wallet
-export const signInWithWallet = async (email, password, walletType = WALLET_TYPES.METAMASK) => {
-  try {
-    authStore.update(store => ({ ...store, loading: true, error: null }));
-
-    // Step 1: Sign in with email
-    const user = await signIn(email, password);
-    
-    // Step 2: Authenticate wallet
-    await authenticateWithWallet(walletType);
-
-    return user;
-  } catch (error) {
-    console.error('Sign in with wallet failed:', error);
-    authStore.update(store => ({
-      ...store,
-      loading: false,
-      error: error.message
-    }));
-    throw error;
-  }
-};
-
-// Wallet-only authentication (no Firebase)
-export const signInWalletOnly = async (walletType = WALLET_TYPES.METAMASK) => {
-  return await authenticateWithWallet(walletType);
-};
 
 // Listen to wallet changes
 walletStore.subscribe((wallet) => {

@@ -174,15 +174,7 @@ class ApiService {
     return this.get('/auth/profile');
   }
 
-  // Register user with email/password
-  async registerWithEmail(userData) {
-    return this.post('/auth/register-email', userData);
-  }
 
-  // Login with email/password
-  async loginWithEmail(credentials) {
-    return this.post('/auth/login-email', credentials);
-  }
 
   // Register user with wallet (after wallet verification)
   async registerUser(userData, jwtToken = null) {
@@ -258,6 +250,11 @@ class ApiService {
   // Check username availability
   async checkUsernameAvailability(username) {
     return this.post('/auth/check-username', { username });
+  }
+
+  // Check email availability
+  async checkEmailAvailability(email) {
+    return this.post('/auth/check-email', { email });
   }
 
   // ===== Candidate Profile Methods =====

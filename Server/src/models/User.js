@@ -1,8 +1,7 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
 
 const userSchema = new mongoose.Schema({
-  // Username for authentication (Requirement 1.5)
+  // Username for authentication (Required and unique)
   username: {
     type: String,
     required: true,
@@ -15,20 +14,11 @@ const userSchema = new mongoose.Schema({
     index: true
   },
   
-  // Password for email authentication
-  password: {
-    type: String,
-    required: function() {
-      return !this.walletAddress; // Password required if no wallet
-    },
-    minlength: 6
-  },
-  
-  // Wallet information (optional for email-only users)
+  // Wallet information (Required for authentication)
   walletAddress: {
     type: String,
+    required: true,
     unique: true,
-    sparse: true, // Allows multiple null values
     lowercase: true,
     index: true
   },
@@ -47,13 +37,14 @@ const userSchema = new mongoose.Schema({
     index: true
   },
   
-  // Basic profile information
+  // Basic profile information (Required and unique)
   email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   },
   
   displayName: {
@@ -186,10 +177,10 @@ userSchema.statics.findByWallet = function(walletAddress) {
   return this.findOne({ walletAddress: walletAddress.toLowerCase() });
 };
 
-// Method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  if (!this.password) return false;
-  return bcrypt.compare(candidatePassword, this.password);
+// Method to check email availability
+userSchema.statics.isEmailAvailable = async function(email) {
+  const user = await this.findOne({ email: email.toLowerCase() });
+  return !user;
 };
 
 // Static method to find by username
@@ -223,16 +214,10 @@ userSchema.statics.searchUsers = function(query, options = {}) {
     .select('-firebaseUid -__v');
 };
 
-// Pre-save middleware to hash password and normalize fields
+// Pre-save middleware to normalize fields
 userSchema.pre('save', async function(next) {
-  // Hash password if modified
-  if (this.isModified('password') && this.password) {
-    const saltRounds = 12;
-    this.password = await bcrypt.hash(this.password, saltRounds);
-  }
-  
   // Normalize fields
-  if (this.isModified('walletAddress') && this.walletAddress) {
+  if (this.isModified('walletAddress')) {
     this.walletAddress = this.walletAddress.toLowerCase();
   }
   if (this.isModified('email')) {
