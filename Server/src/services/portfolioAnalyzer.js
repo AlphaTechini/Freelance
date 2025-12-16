@@ -1,6 +1,6 @@
 import githubService from './githubService.js';
 import webScrapingService from './webScrapingService.js';
-import invokeLLMService from './invokeLLMService.js';
+import geminiService from './geminiService.js';
 import PortfolioAnalysis from '../models/PortfolioAnalysis.js';
 
 class PortfolioAnalyzer {
@@ -166,7 +166,7 @@ class PortfolioAnalyzer {
   }
 
   /**
-   * Generate improvement suggestions using InvokeLLM (Requirement 2.4)
+   * Generate improvement suggestions using Gemini AI (Requirement 2.4)
    * @param {object} scores - Calculated scores
    * @param {object} portfolioData - Portfolio analysis results
    * @param {object} githubData - GitHub analysis results
@@ -174,8 +174,8 @@ class PortfolioAnalyzer {
    */
   async generateImprovementSuggestions(scores, portfolioData, githubData) {
     try {
-      // Try InvokeLLM first for AI-powered suggestions
-      const aiSuggestions = await invokeLLMService.generateImprovementSuggestions(
+      // Try Gemini AI first for AI-powered suggestions
+      const aiSuggestions = await geminiService.generateImprovementSuggestions(
         { portfolioData, githubData }, 
         scores
       );
@@ -184,7 +184,7 @@ class PortfolioAnalyzer {
         return aiSuggestions;
       }
     } catch (error) {
-      console.warn('InvokeLLM suggestions failed, falling back to rule-based:', error.message);
+      console.warn('Gemini AI suggestions failed, falling back to rule-based:', error.message);
     }
 
     // Fallback to rule-based suggestions
@@ -342,17 +342,17 @@ class PortfolioAnalyzer {
         githubUrl ? githubService.analyzeGitHubProfile(githubUrl) : null
       ]);
 
-      // Calculate scores using InvokeLLM + traditional methods (Requirement 2.3)
+      // Calculate scores using Gemini AI + traditional methods (Requirement 2.3)
       let scores = {
         codeQuality: githubData ? this.calculateCodeQualityScore(githubData) : 0,
         projectDepth: this.calculateProjectDepthScore(portfolioData || {}, githubData || {}),
         portfolioCompleteness: this.calculatePortfolioCompletenessScore(portfolioData || {}, githubData || {})
       };
 
-      // Enhance scores with InvokeLLM analysis
+      // Enhance scores with Gemini AI analysis
       try {
         if (portfolioData && portfolioData.content) {
-          const aiAnalysis = await invokeLLMService.analyzePortfolioContent(
+          const aiAnalysis = await geminiService.analyzePortfolioContent(
             portfolioData.content, 
             githubData || {}
           );
@@ -377,13 +377,13 @@ class PortfolioAnalyzer {
           };
         }
       } catch (error) {
-        console.warn('InvokeLLM analysis failed, using traditional scoring:', error.message);
+        console.warn('Gemini AI analysis failed, using traditional scoring:', error.message);
       }
 
       // Calculate overall score
       scores.overall = Math.round((scores.codeQuality + scores.projectDepth + scores.portfolioCompleteness) / 3);
 
-      // Generate improvement suggestions using InvokeLLM (Requirement 2.4)
+      // Generate improvement suggestions using Gemini AI (Requirement 2.4)
       const improvements = await this.generateImprovementSuggestions(scores, portfolioData || {}, githubData || {});
 
       // Update analysis with results

@@ -1,12 +1,16 @@
 /**
- * InvokeLLM Service for AI-powered text analysis and generation
- * Based on Visualyze.ai InvokeLLM API
+ * Gemini AI Service for AI-powered text analysis and generation
+ * Using Google Gemini API
  */
 
-class InvokeLLMService {
+class GeminiService {
   constructor() {
-    this.apiKey = process.env.INVOKELLM_API_KEY;
-    this.baseUrl = process.env.INVOKELLM_BASE_URL || 'https://api.visualyze.ai';
+    this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
+    this.model = 'gemini-2.5-flash';
+  }
+
+  get apiKey() {
+    return process.env.GEMINI_API_KEY;
   }
 
   /**
@@ -28,7 +32,7 @@ class InvokeLLMService {
 
       return this.parsePortfolioAnalysisResponse(response);
     } catch (error) {
-      console.error('InvokeLLM portfolio analysis failed:', error);
+      console.error('Gemini portfolio analysis failed:', error);
       throw new Error(`Portfolio analysis failed: ${error.message}`);
     }
   }
@@ -52,7 +56,7 @@ class InvokeLLMService {
 
       return this.parseImprovementSuggestions(response);
     } catch (error) {
-      console.error('InvokeLLM improvement suggestions failed:', error);
+      console.error('Gemini improvement suggestions failed:', error);
       throw new Error(`Improvement suggestions failed: ${error.message}`);
     }
   }
@@ -76,7 +80,7 @@ class InvokeLLMService {
 
       return this.parseJobMatchResponse(response);
     } catch (error) {
-      console.error('InvokeLLM job matching failed:', error);
+      console.error('Gemini job matching failed:', error);
       throw new Error(`Job matching failed: ${error.message}`);
     }
   }
@@ -101,45 +105,55 @@ class InvokeLLMService {
 
       return response.text || response.content || 'Match explanation not available';
     } catch (error) {
-      console.error('InvokeLLM match explanation failed:', error);
+      console.error('Gemini match explanation failed:', error);
       return `Strong match (${matchScore}%) based on skills and experience alignment.`;
     }
   }
 
   /**
-   * Core InvokeLLM API call
+   * Core Gemini API call
    * @param {object} params - API parameters
    * @returns {Promise<object>} - API response
    */
   async invokeTextAnalysis(params) {
     if (!this.apiKey) {
-      throw new Error('InvokeLLM API key not configured');
+      throw new Error('Gemini API key not configured');
     }
 
     const requestBody = {
-      model: params.model || 'gpt-4o-mini',
-      prompt: params.prompt,
-      max_tokens: params.maxTokens || 500,
-      temperature: params.temperature || 0.3,
-      task_type: params.task || 'text_analysis'
+      contents: [{
+        parts: [{
+          text: params.prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: params.temperature || 0.3,
+        maxOutputTokens: params.maxTokens || 500,
+        topP: 0.8,
+        topK: 10
+      }
     };
 
-    const response = await fetch(`${this.baseUrl}/v1/invoke-llm`, {
+    const response = await fetch(`${this.baseUrl}/${this.model}:generateContent?key=${this.apiKey}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-        'X-API-Version': '1.0'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`InvokeLLM API error: ${response.status} - ${errorData.message || response.statusText}`);
+      throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    // Transform Gemini response to match expected format
+    return {
+      text: result.candidates?.[0]?.content?.parts?.[0]?.text || '',
+      content: result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    };
   }
 
   /**
@@ -394,4 +408,4 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
   }
 }
 
-export default new InvokeLLMService();
+export default new GeminiService();

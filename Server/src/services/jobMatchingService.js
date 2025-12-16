@@ -1,9 +1,9 @@
 /**
- * AI-powered job matching service using InvokeLLM
+ * AI-powered job matching service using Gemini AI
  * Implements intelligent candidate ranking and match explanations
  */
 
-import invokeLLMService from './invokeLLMService.js';
+import geminiService from './geminiService.js';
 import CandidateProfile from '../models/CandidateProfile.js';
 import PortfolioAnalysis from '../models/PortfolioAnalysis.js';
 
@@ -113,7 +113,7 @@ class JobMatchingService {
       // Try to enhance with AI explanation if available
       let explanation;
       try {
-        explanation = await invokeLLMService.generateMatchExplanation(candidateProfile, jobPosting, matchResult.overallScore);
+        explanation = await geminiService.generateMatchExplanation(candidateProfile, jobPosting, matchResult.overallScore);
       } catch (error) {
         console.warn('AI explanation failed, using basic explanation:', error);
         explanation = this.generateBasicExplanation(candidate, jobPosting, matchResult.overallScore);
@@ -162,7 +162,7 @@ class JobMatchingService {
   }
 
   /**
-   * Generate human-readable match explanation using InvokeLLM
+   * Generate human-readable match explanation using Gemini AI
    * @param {object} candidate - Candidate profile
    * @param {object} jobPosting - Job posting
    * @param {number} matchScore - Calculated match score
@@ -177,7 +177,7 @@ class JobMatchingService {
         portfolioScore: 75 // Default for explanation
       };
 
-      return await invokeLLMService.generateMatchExplanation(candidateProfile, jobPosting, matchScore);
+      return await geminiService.generateMatchExplanation(candidateProfile, jobPosting, matchScore);
     } catch (error) {
       console.error('Match explanation generation failed:', error);
       return this.generateBasicExplanation(candidate, jobPosting, matchScore);
@@ -647,7 +647,7 @@ class JobMatchingService {
       };
 
       // Try AI-generated explanation first
-      const aiExplanation = await invokeLLMService.generateMatchExplanation(
+      const aiExplanation = await geminiService.generateMatchExplanation(
         candidateProfile, 
         jobPosting, 
         matchDetails.overallScore

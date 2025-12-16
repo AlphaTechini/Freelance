@@ -98,9 +98,9 @@ fastify.get('/health', async (request, reply) => {
       name: 'Cloudinary'
     };
 
-    health.services.invokellm = {
-      status: process.env.INVOKELLM_API_KEY ? 'configured' : 'not_configured',
-      name: 'InvokeLLM API'
+    health.services.gemini = {
+      status: process.env.GEMINI_API_KEY ? 'configured' : 'not_configured',
+      name: 'Google Gemini API'
     };
 
     // Check if any critical services are down
@@ -132,15 +132,15 @@ async function registerRoutes() {
   // Import and register candidate routes  
   const candidateRoutes = await import('./routes/candidates.js');
 
-  // Register API routes
-  await fastify.register(authRoutes, { prefix: '/api' });
-  await fastify.register(userRoutes, { prefix: '/api' });
-  await fastify.register(gigRoutes, { prefix: '/api' });
-  await fastify.register(priceRoutes, { prefix: '/api' });
-  await fastify.register(portfolioRoutes, { prefix: '/api' });
-  await fastify.register(paymentRoutes, { prefix: '/api' });
-  await fastify.register(jobRoutes.default, { prefix: '/api' });
-  await fastify.register(candidateRoutes.default, { prefix: '/api' });
+  // Register API routes (no prefix since frontend expects routes without /api)
+  await fastify.register(authRoutes);
+  await fastify.register(userRoutes);
+  await fastify.register(gigRoutes);
+  await fastify.register(priceRoutes);
+  await fastify.register(portfolioRoutes);
+  await fastify.register(paymentRoutes);
+  await fastify.register(jobRoutes.default);
+  await fastify.register(candidateRoutes.default);
 }
 
 // Favicon endpoint to prevent 500 errors
@@ -149,7 +149,7 @@ fastify.get('/favicon.ico', async (request, reply) => {
 });
 
 // Test endpoint
-fastify.get('/api/test', async (request, reply) => {
+fastify.get('/test', async (request, reply) => {
   return { message: 'MeritStack API is running!' };
 });
 
