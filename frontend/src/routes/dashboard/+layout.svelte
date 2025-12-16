@@ -37,6 +37,11 @@
         // More user-friendly error message during warmup
         if (err.message.includes('fetch') || err.message.includes('NetworkError')) {
           error = 'Backend is starting up, please wait a moment...';
+        } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+          // Token might be expired or invalid, redirect to login
+          console.log('Authentication failed, redirecting to login');
+          goto('/auth/login');
+          return;
         } else {
           error = 'Failed to load profile: ' + err.message;
         }
