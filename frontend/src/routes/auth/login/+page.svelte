@@ -76,16 +76,18 @@
         />
 
         {#if $walletStore.isConnected}
-          <Button
-            variant="primary"
-            size="lg"
-            loading={loading}
-            disabled={loading}
-            onclick={handleWalletLogin}
-            class="w-full"
-          >
-            {loading ? 'Authenticating...' : 'Sign In with Wallet'}
-          </Button>
+          <form onsubmit={(e) => { e.preventDefault(); handleWalletLogin(); }}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              loading={loading}
+              disabled={loading}
+              class="w-full"
+            >
+              {loading ? 'Authenticating...' : 'Sign In with Wallet'}
+            </Button>
+          </form>
         {/if}
       </div>
 

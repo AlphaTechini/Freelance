@@ -201,38 +201,33 @@
     }
   }
 
-  // Clear field errors on input
-  $effect(() => {
+  // Debounce timers
+  let usernameTimer;
+  let emailTimer;
+
+  // Handle username changes
+  function handleUsernameChange() {
+    usernameError = '';
+    usernameAvailable = null;
+    clearTimeout(usernameTimer);
     if (username) {
-      usernameError = '';
-      usernameAvailable = null;
-      // Debounce username availability check
-      const timer = setTimeout(() => {
+      usernameTimer = setTimeout(() => {
         checkUsernameAvailability(username);
       }, 500);
-      return () => clearTimeout(timer);
     }
-  });
+  }
 
-  $effect(() => {
+  // Handle email changes
+  function handleEmailChange() {
+    emailError = '';
+    emailAvailable = null;
+    clearTimeout(emailTimer);
     if (email) {
-      emailError = '';
-      emailAvailable = null;
-      // Debounce email availability check
-      const timer = setTimeout(() => {
+      emailTimer = setTimeout(() => {
         checkEmailAvailability(email);
       }, 500);
-      return () => clearTimeout(timer);
     }
-  });
-
-  $effect(() => {
-    if (displayName) displayNameError = '';
-  });
-  
-  $effect(() => {
-    if (role) roleError = '';
-  });
+  }
 </script>
 
 <svelte:head>
@@ -306,7 +301,8 @@
 
           {#if $walletStore.isConnected}
             <Button
-              onclick={nextStep}
+              type="button"
+              onclick={(e) => { e.preventDefault(); nextStep(); }}
               variant="primary"
               size="lg"
               class="w-full"
@@ -363,7 +359,8 @@
 
           <div class="flex space-x-4">
             <Button
-              onclick={prevStep}
+              type="button"
+              onclick={(e) => { e.preventDefault(); prevStep(); }}
               variant="secondary"
               size="lg"
               class="flex-1"
@@ -371,7 +368,8 @@
               Back
             </Button>
             <Button
-              onclick={nextStep}
+              type="button"
+              onclick={(e) => { e.preventDefault(); nextStep(); }}
               variant="primary"
               size="lg"
               class="flex-1"
@@ -394,42 +392,6 @@
               Complete your profile information
             </p>
           </div>
-          <!-- Role Selection -->
-          <fieldset>
-            <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Select Your Role *
-            </legend>
-            <div class="grid grid-cols-1 gap-3">
-              {#each roleOptions as roleOption}
-                <label 
-                  class="relative flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all
-                    {role === roleOption.value 
-                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-                      : 'border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700'}"
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value={roleOption.value}
-                    bind:group={role}
-                    disabled={loading}
-                    class="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300"
-                  />
-                  <div class="ml-3">
-                    <span class="block text-sm font-medium text-gray-900 dark:text-white">
-                      {roleOption.label}
-                    </span>
-                    <span class="block text-xs text-gray-500 dark:text-gray-400">
-                      {roleOption.description}
-                    </span>
-                  </div>
-                </label>
-              {/each}
-            </div>
-            {#if roleError}
-              <p class="mt-1 text-sm text-red-600 dark:text-red-400">{roleError}</p>
-            {/if}
-          </fieldset>
           
           <!-- Username Input -->
           <div>
@@ -439,6 +401,7 @@
                 label="Username"
                 placeholder="Choose a unique username"
                 bind:value={username}
+                oninput={handleUsernameChange}
                 error={usernameError}
                 required
                 disabled={loading}
@@ -470,6 +433,7 @@
                 label="Email Address"
                 placeholder="you@example.com"
                 bind:value={email}
+                oninput={handleEmailChange}
                 error={emailError}
                 required
                 disabled={loading}
@@ -524,7 +488,7 @@
           <div class="flex space-x-4">
             <Button
               type="button"
-              onclick={prevStep}
+              onclick={(e) => { e.preventDefault(); prevStep(); }}
               variant="secondary"
               size="lg"
               class="flex-1"
