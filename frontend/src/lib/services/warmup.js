@@ -7,8 +7,8 @@ class WarmupService {
     this.isWarmed = false;
     this.warmupPromise = null;
     this.retryCount = 0;
-    this.maxRetries = 5;
-    this.retryDelay = 5000; // Start with 5 seconds to reduce frequency
+    this.maxRetries = 3; // Reduced from 5 to 3
+    this.retryDelay = 3000; // Reduced from 5000 to 3000ms
   }
 
   // Ping backend to wake it up
@@ -53,8 +53,8 @@ class WarmupService {
           throw new Error(`Backend warmup failed: ${error.message}`);
         }
         
-        // Exponential backoff with jitter - less aggressive
-        const delay = this.retryDelay * Math.pow(2, this.retryCount - 1) + Math.random() * 2000;
+        // Linear backoff instead of exponential - more predictable
+        const delay = this.retryDelay + (this.retryCount * 1000); // 3s, 4s, 5s
         console.log(`⏳ Retrying in ${Math.round(delay)}ms...`);
         
         await new Promise(resolve => setTimeout(resolve, delay));

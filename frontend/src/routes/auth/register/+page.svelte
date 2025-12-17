@@ -18,6 +18,10 @@
   let emailAvailable = $state(null);
   let checkingUsername = $state(false);
   let checkingEmail = $state(false);
+  
+  // Step management
+  let currentStep = $state(1);
+  const totalSteps = 3;
 
   // Form validation
   let usernameError = $state('');
@@ -124,19 +128,37 @@
     return '';
   }
 
-  async function handleWalletRegister() {
-    if (!$walletStore.isConnected) {
+  function nextStep() {
+    if (currentStep === 1 && !$walletStore.isConnected) {
       error = 'Please connect your wallet first';
       return;
     }
+    
+    if (currentStep === 2 && !role) {
+      roleError = 'Please select a role';
+      return;
+    }
+    
+    if (currentStep < totalSteps) {
+      currentStep++;
+      error = '';
+    }
+  }
+  
+  function prevStep() {
+    if (currentStep > 1) {
+      currentStep--;
+      error = '';
+    }
+  }
 
+  async function handleWalletRegister() {
     // Validate inputs
     usernameError = validateUsername(username);
     displayNameError = validateDisplayName(displayName);
     emailError = validateEmail(email);
-    roleError = validateRole(role);
 
-    if (usernameError || displayNameError || emailError || roleError) {
+    if (usernameError || displayNameError || emailError) {
       return;
     }
 
@@ -234,9 +256,35 @@
         </div>
       {/if}
 
-      <!-- Wallet Connection First -->
+      <!-- Progress Steps -->
       <div class="mb-8">
-        <div class="text-center mb-4">
+        <div class="flex items-center justify-between">
+          {#each Array(totalSteps) as _, i}
+            <div class="flex items-center {i < totalSteps - 1 ? 'flex-1' : ''}">
+              <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 
+                {currentStep > i + 1 ? 'bg-orange-500 border-orange-500 text-white' : 
+                 currentStep === i + 1 ? 'border-orange-500 text-orange-500' : 
+                 'border-gray-300 text-gray-300'}">
+                {currentStep > i + 1 ? '✓' : i + 1}
+              </div>
+              {#if i < totalSteps - 1}
+                <div class="flex-1 h-0.5 mx-4 
+                  {currentStep > i + 1 ? 'bg-orange-500' : 'bg-gray-300'}">
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+        <div class="flex justify-between mt-2 text-xs text-gray-500">
+          <span>Wallet</span>
+          <span>Role</span>
+          <span>Details</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Wallet Connection -->
+      {#if currentStep === 1}
+        <div class="text-center mb-8">
           <div class="w-16 h-16 mx-auto mb-4 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center">
             <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
@@ -245,22 +293,107 @@
           <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
             Connect Your Wallet
           </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            First, connect your crypto wallet to secure your account
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            Connect your crypto wallet to secure your account
           </p>
+
+          <WalletConnect 
+            showBalance={false}
+            variant="primary"
+            size="lg"
+            class="w-full mb-6"
+          />
+
+          {#if $walletStore.isConnected}
+            <Button
+              onclick={nextStep}
+              variant="primary"
+              size="lg"
+              class="w-full"
+            >
+              Continue
+            </Button>
+          {/if}
         </div>
+      {/if}
 
-        <WalletConnect 
-          showBalance={false}
-          variant="primary"
-          size="lg"
-          class="w-full"
-        />
-      </div>
+      <!-- Step 2: Role Selection -->
+      {#if currentStep === 2}
+        <div class="space-y-6">
+          <div class="text-center mb-6">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              Choose Your Role
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+              Select the role that best describes you
+            </p>
+          </div>
 
-      {#if $walletStore.isConnected}
-        <!-- Registration Form -->
+          <fieldset>
+            <div class="grid grid-cols-1 gap-3">
+              {#each roleOptions as roleOption}
+                <label 
+                  class="relative flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all
+                    {role === roleOption.value 
+                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700'}"
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value={roleOption.value}
+                    bind:group={role}
+                    class="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300"
+                  />
+                  <div class="ml-3">
+                    <span class="block text-sm font-medium text-gray-900 dark:text-white">
+                      {roleOption.label}
+                    </span>
+                    <span class="block text-xs text-gray-500 dark:text-gray-400">
+                      {roleOption.description}
+                    </span>
+                  </div>
+                </label>
+              {/each}
+            </div>
+            {#if roleError}
+              <p class="mt-2 text-sm text-red-600 dark:text-red-400">{roleError}</p>
+            {/if}
+          </fieldset>
+
+          <div class="flex space-x-4">
+            <Button
+              onclick={prevStep}
+              variant="secondary"
+              size="lg"
+              class="flex-1"
+            >
+              Back
+            </Button>
+            <Button
+              onclick={nextStep}
+              variant="primary"
+              size="lg"
+              class="flex-1"
+              disabled={!role}
+            >
+              Continue
+            </Button>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Step 3: Account Details -->
+      {#if currentStep === 3}
         <form onsubmit={(e) => { e.preventDefault(); handleWalletRegister(); }} class="space-y-6">
+          <div class="text-center mb-6">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              Account Details
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+              Complete your profile information
+            </p>
+          </div>
           <!-- Role Selection -->
           <fieldset>
             <legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -387,17 +520,29 @@
             </label>
           </div>
 
-          <!-- Register Button -->
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            loading={loading}
-            disabled={loading || !agreedToTerms}
-            class="w-full"
-          >
-            {loading ? 'Creating Account...' : 'Create Account'}
-          </Button>
+          <!-- Navigation Buttons -->
+          <div class="flex space-x-4">
+            <Button
+              type="button"
+              onclick={prevStep}
+              variant="secondary"
+              size="lg"
+              class="flex-1"
+              disabled={loading}
+            >
+              Back
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              loading={loading}
+              disabled={loading || !agreedToTerms}
+              class="flex-1"
+            >
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </Button>
+          </div>
         </form>
       {/if}
 
