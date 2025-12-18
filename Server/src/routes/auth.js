@@ -369,7 +369,7 @@ export default async function authRoutes(fastify, options) {
         token
       };
     } catch (error) {
-      fastify.log.error('Registration error:', error);
+      fastify.log.error('Registration error:', error.message, error.stack);
       return reply.code(400).send({
         success: false,
         error: {

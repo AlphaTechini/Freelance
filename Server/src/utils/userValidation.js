@@ -12,6 +12,20 @@ export const validateUserCreation = (userData) => {
     }
   }
   
+  // Validate username
+  if (!userData.username || typeof userData.username !== 'string') {
+    errors.push('Username is required');
+  } else {
+    const trimmedUsername = userData.username.trim().toLowerCase();
+    if (trimmedUsername.length < 3) {
+      errors.push('Username must be at least 3 characters');
+    } else if (trimmedUsername.length > 30) {
+      errors.push('Username must not exceed 30 characters');
+    } else if (!/^[a-z0-9_-]+$/.test(trimmedUsername)) {
+      errors.push('Username can only contain lowercase letters, numbers, hyphens, and underscores');
+    }
+  }
+  
   // Validate wallet address
   if (!userData.walletAddress) {
     errors.push('Wallet address is required');
@@ -36,6 +50,12 @@ export const validateUserCreation = (userData) => {
     } else if (trimmedName.length > 50) {
       errors.push('Display name must not exceed 50 characters');
     }
+  }
+  
+  // Validate role
+  const validRoles = ['freelancer', 'recruiter', 'student', 'graduate', 'phd'];
+  if (!userData.role || !validRoles.includes(userData.role)) {
+    errors.push(`Valid role is required (${validRoles.join(', ')})`);
   }
   
   return {
