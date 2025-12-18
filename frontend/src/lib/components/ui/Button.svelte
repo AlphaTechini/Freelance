@@ -5,7 +5,7 @@
     disabled = false,
     loading = false,
     type = 'button',
-    onclick = () => {},
+    onclick = undefined,
     children,
     class: className = '',
     ...rest
@@ -59,7 +59,11 @@
   {type}
   {disabled}
   class={getButtonClasses()}
-  onclick={onclick}
+  onclick={(e) => {
+    if (!disabled && !loading && onclick) {
+      onclick(e);
+    }
+  }}
   {...rest}
 >
   {#if loading}

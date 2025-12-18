@@ -1,6 +1,9 @@
 <script>
-  import { walletStore, connectWallet, disconnectWallet, isMetaMaskInstalled, WALLET_TYPES } from '$lib/services/wallet.js';
+  import { walletStore, connectWallet, disconnectWallet, isMetaMaskInstalled, switchNetwork, WALLET_TYPES } from '$lib/services/wallet.js';
   import Button from './ui/Button.svelte';
+
+  // BNB Testnet chain ID
+  const BNB_TESTNET_CHAIN_ID = 97;
 
   let { 
     onConnect = () => {},
@@ -23,7 +26,18 @@
         return;
       }
 
-      await connectWallet(walletType);
+      const result = await connectWallet(walletType);
+      
+      // Switch to BNB Testnet if not already on it
+      if (result.chainId !== BNB_TESTNET_CHAIN_ID) {
+        try {
+          await switchNetwork(BNB_TESTNET_CHAIN_ID);
+        } catch (switchErr) {
+          console.warn('Could not switch to BNB Testnet:', switchErr.message);
+          // Continue anyway - user can switch manually
+        }
+      }
+      
       onConnect();
     } catch (err) {
       console.error('Wallet connection error:', err);
@@ -51,7 +65,7 @@
         <div class="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
           <p class="text-sm text-gray-600 dark:text-gray-400">Balance</p>
           <p class="font-semibold text-gray-900 dark:text-white">
-            {parseFloat($walletStore.balance).toFixed(4)} ETH
+            {parseFloat($walletStore.balance).toFixed(4)} tBNB
           </p>
         </div>
       {/if}
@@ -80,7 +94,7 @@
         disabled={connecting}
         onclick={() => handleConnect(WALLET_TYPES.METAMASK)}
       >
-        {connecting ? 'Connecting...' : 'Connect MetaMask'}
+        {connecting ? 'Connecting to BNB Testnet...' : 'Connect Wallet (BNB Testnet)'}
       </Button>
 
       {#if error}

@@ -214,7 +214,8 @@
       if (response.success) {
         success = 'Profile updated successfully!';
         setTimeout(() => {
-          goto('/profile');
+          // Redirect to dashboard after saving profile
+          goto('/dashboard');
         }, 1500);
       }
     } catch (err) {

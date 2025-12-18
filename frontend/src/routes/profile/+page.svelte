@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { authStore } from '$lib/stores/auth.js';
   import { walletStore } from '$lib/services/wallet.js';
   import { apiService } from '$lib/services/api.js';
@@ -10,9 +11,19 @@
   let loading = $state(true);
   let error = $state('');
   let profile = $state(null);
+  let isNewUser = $state(false);
   
   onMount(async () => {
+    // Check if this is a new user coming from registration
+    const urlParams = new URLSearchParams(window.location.search);
+    isNewUser = urlParams.get('new') === 'true';
+    
     await loadProfile();
+    
+    // If new user or profile is incomplete, redirect to edit page
+    if (isNewUser || (profile && !profile.bio && (!profile.skills || profile.skills.length === 0))) {
+      goto('/profile/edit');
+    }
   });
   
   async function loadProfile() {

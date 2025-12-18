@@ -9,7 +9,6 @@
 
   let username = $state('');
   let email = $state('');
-  let displayName = $state('');
   let role = $state('');
   let loading = $state(false);
   let error = $state('');
@@ -19,35 +18,27 @@
   let checkingUsername = $state(false);
   let checkingEmail = $state(false);
   
-  // Step management
+  // Step management: Step 1 = Details + Wallet, Step 2 = Role
   let currentStep = $state(1);
-  const totalSteps = 3;
+  const totalSteps = 2;
 
   // Form validation
   let usernameError = $state('');
   let emailError = $state('');
-  let displayNameError = $state('');
   let roleError = $state('');
   
-  // Role options
+  // Role options (removed PhD candidate)
   const roleOptions = [
-    { value: 'freelancer', label: 'Freelancer', description: 'Offer your services and skills' },
-    { value: 'student', label: 'Student', description: 'Currently pursuing education' },
-    { value: 'graduate', label: 'Graduate', description: 'Completed undergraduate education' },
-    { value: 'phd', label: 'PhD Candidate', description: 'Advanced academic credentials' },
-    { value: 'recruiter', label: 'Recruiter', description: 'Find and hire talent' }
+    { value: 'freelancer', label: 'Freelancer', description: 'Offer your services and skills', icon: '💼' },
+    { value: 'student', label: 'Student', description: 'Currently pursuing education', icon: '📚' },
+    { value: 'graduate', label: 'Graduate', description: 'Completed undergraduate education', icon: '🎓' },
+    { value: 'recruiter', label: 'Recruiter', description: 'Find and hire talent', icon: '🔍' }
   ];
 
   function validateUsername(value) {
-    if (!value) {
-      return 'Username is required';
-    }
-    if (value.length < 3) {
-      return 'Username must be at least 3 characters';
-    }
-    if (value.length > 30) {
-      return 'Username must be less than 30 characters';
-    }
+    if (!value) return 'Username is required';
+    if (value.length < 3) return 'Username must be at least 3 characters';
+    if (value.length > 30) return 'Username must be less than 30 characters';
     const usernameRegex = /^[a-z0-9_-]+$/;
     if (!usernameRegex.test(value.toLowerCase())) {
       return 'Username can only contain lowercase letters, numbers, hyphens, and underscores';
@@ -60,15 +51,11 @@
       usernameAvailable = null;
       return;
     }
-
     try {
       checkingUsername = true;
       const response = await apiService.checkUsernameAvailability(value);
       usernameAvailable = response.available;
-      
-      if (!response.available) {
-        usernameError = 'This username is already taken';
-      }
+      if (!response.available) usernameError = 'This username is already taken';
     } catch (err) {
       console.error('Error checking username:', err);
     } finally {
@@ -77,13 +64,9 @@
   }
 
   function validateEmail(value) {
-    if (!value) {
-      return 'Email is required';
-    }
+    if (!value) return 'Email is required';
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) {
-      return 'Please enter a valid email address';
-    }
+    if (!emailRegex.test(value)) return 'Please enter a valid email address';
     return '';
   }
 
@@ -92,57 +75,43 @@
       emailAvailable = null;
       return;
     }
-
     try {
       checkingEmail = true;
       const response = await apiService.checkEmailAvailability(value);
       emailAvailable = response.available;
-      
-      if (!response.available) {
-        emailError = 'This email is already registered';
-      }
+      if (!response.available) emailError = 'This email is already registered';
     } catch (err) {
       console.error('Error checking email:', err);
     } finally {
       checkingEmail = false;
     }
   }
-  
-  function validateDisplayName(value) {
-    if (!value) {
-      return 'Display name is required';
-    }
-    if (value.length < 2) {
-      return 'Display name must be at least 2 characters';
-    }
-    if (value.length > 50) {
-      return 'Display name must be less than 50 characters';
-    }
-    return '';
-  }
-  
-  function validateRole(value) {
-    if (!value) {
-      return 'Please select a role';
-    }
-    return '';
-  }
 
   function nextStep() {
-    if (currentStep === 1 && !$walletStore.isConnected) {
+    // Validate Step 1
+    usernameError = validateUsername(username);
+    emailError = validateEmail(email);
+    
+    if (usernameError || emailError) return;
+    if (usernameAvailable === false) {
+      usernameError = 'This username is already taken';
+      return;
+    }
+    if (emailAvailable === false) {
+      emailError = 'This email is already registered';
+      return;
+    }
+    if (!$walletStore.isConnected) {
       error = 'Please connect your wallet first';
       return;
     }
-    
-    if (currentStep === 2 && !role) {
-      roleError = 'Please select a role';
+    if (!agreedToTerms) {
+      error = 'Please agree to the Terms of Service';
       return;
     }
     
-    if (currentStep < totalSteps) {
-      currentStep++;
-      error = '';
-    }
+    currentStep = 2;
+    error = '';
   }
   
   function prevStep() {
@@ -152,28 +121,9 @@
     }
   }
 
-  async function handleWalletRegister() {
-    // Validate inputs
-    usernameError = validateUsername(username);
-    displayNameError = validateDisplayName(displayName);
-    emailError = validateEmail(email);
-
-    if (usernameError || displayNameError || emailError) {
-      return;
-    }
-
-    if (usernameAvailable === false) {
-      usernameError = 'This username is already taken';
-      return;
-    }
-
-    if (emailAvailable === false) {
-      emailError = 'This email is already registered';
-      return;
-    }
-
-    if (!agreedToTerms) {
-      error = 'Please agree to the Terms of Service and Privacy Policy';
+  async function handleRegister() {
+    if (!role) {
+      roleError = 'Please select a role';
       return;
     }
 
@@ -181,20 +131,17 @@
       loading = true;
       error = '';
       
-      await signUpWithWallet(username, email, displayName, role, WALLET_TYPES.METAMASK);
+      // Username = Display Name
+      await signUpWithWallet(username, email, username, role, WALLET_TYPES.METAMASK);
       
-      // Redirect to profile creation page based on role
-      if (role === 'recruiter') {
-        goto('/profile/create?type=recruiter');
-      } else {
-        goto('/profile/create?type=candidate');
-      }
+      // Redirect to profile edit page to complete remaining info
+      goto('/profile/edit');
     } catch (err) {
-      console.error('Wallet registration error:', err);
-      if (err.code === 'auth/email-already-in-use') {
-        error = 'This email is already registered. Please sign in instead.';
+      console.error('Registration error:', err);
+      if (err.message?.includes('already')) {
+        error = 'This account already exists. Please sign in instead.';
       } else {
-        error = err.message || 'Failed to create account with wallet';
+        error = err.message || 'Failed to create account';
       }
     } finally {
       loading = false;
@@ -205,40 +152,34 @@
   let usernameTimer;
   let emailTimer;
 
-  // Handle username changes
   function handleUsernameChange() {
     usernameError = '';
     usernameAvailable = null;
     clearTimeout(usernameTimer);
     if (username) {
-      usernameTimer = setTimeout(() => {
-        checkUsernameAvailability(username);
-      }, 500);
+      usernameTimer = setTimeout(() => checkUsernameAvailability(username), 500);
     }
   }
 
-  // Handle email changes
   function handleEmailChange() {
     emailError = '';
     emailAvailable = null;
     clearTimeout(emailTimer);
     if (email) {
-      emailTimer = setTimeout(() => {
-        checkEmailAvailability(email);
-      }, 500);
+      emailTimer = setTimeout(() => checkEmailAvailability(email), 500);
     }
   }
 </script>
 
 <svelte:head>
-  <title>Register - TalentFind</title>
+  <title>Sign Up - MeritStack</title>
 </svelte:head>
 
 <div class="min-h-screen flex items-center justify-center px-4 py-12 bg-gray-50 dark:bg-gray-900">
   <div class="max-w-md w-full">
     <!-- Header -->
     <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold text-orange-500 mb-2">TalentFind</h1>
+      <h1 class="text-4xl font-bold text-orange-500 mb-2">MeritStack</h1>
       <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Create Account</h2>
       <p class="text-gray-600 dark:text-gray-400">Join the universal talent platform</p>
     </div>
@@ -253,178 +194,28 @@
 
       <!-- Progress Steps -->
       <div class="mb-8">
-        <div class="flex items-center justify-between">
-          {#each Array(totalSteps) as _, i}
-            <div class="flex items-center {i < totalSteps - 1 ? 'flex-1' : ''}">
-              <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 
-                {currentStep > i + 1 ? 'bg-orange-500 border-orange-500 text-white' : 
-                 currentStep === i + 1 ? 'border-orange-500 text-orange-500' : 
-                 'border-gray-300 text-gray-300'}">
-                {currentStep > i + 1 ? '✓' : i + 1}
-              </div>
-              {#if i < totalSteps - 1}
-                <div class="flex-1 h-0.5 mx-4 
-                  {currentStep > i + 1 ? 'bg-orange-500' : 'bg-gray-300'}">
-                </div>
-              {/if}
+        <div class="flex items-center justify-center">
+          <div class="flex items-center">
+            <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 
+              {currentStep >= 1 ? 'bg-orange-500 border-orange-500 text-white' : 'border-gray-300 text-gray-300'}">
+              {currentStep > 1 ? '✓' : '1'}
             </div>
-          {/each}
+            <div class="w-16 h-0.5 mx-2 {currentStep > 1 ? 'bg-orange-500' : 'bg-gray-300'}"></div>
+            <div class="flex items-center justify-center w-8 h-8 rounded-full border-2 
+              {currentStep === 2 ? 'border-orange-500 text-orange-500' : 'border-gray-300 text-gray-300'}">
+              2
+            </div>
+          </div>
         </div>
-        <div class="flex justify-between mt-2 text-xs text-gray-500">
-          <span>Wallet</span>
+        <div class="flex justify-center mt-2 text-xs text-gray-500 gap-12">
+          <span>Account</span>
           <span>Role</span>
-          <span>Details</span>
         </div>
       </div>
 
-      <!-- Step 1: Wallet Connection -->
+      <!-- Step 1: Account Details + Wallet -->
       {#if currentStep === 1}
-        <div class="text-center mb-8">
-          <div class="w-16 h-16 mx-auto mb-4 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center">
-            <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
-            </svg>
-          </div>
-          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            Connect Your Wallet
-          </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            Connect your crypto wallet to secure your account
-          </p>
-
-          <WalletConnect 
-            showBalance={false}
-            variant="primary"
-            size="lg"
-            class="w-full mb-6"
-          />
-
-          {#if $walletStore.isConnected}
-            <Button
-              type="button"
-              onclick={(e) => { e.preventDefault(); nextStep(); }}
-              variant="primary"
-              size="lg"
-              class="w-full"
-            >
-              Continue
-            </Button>
-          {/if}
-        </div>
-      {/if}
-
-      <!-- Step 2: Role Selection -->
-      {#if currentStep === 2}
-        <div class="space-y-6">
-          <div class="text-center mb-6">
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Choose Your Role
-            </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">
-              Select the role that best describes you
-            </p>
-          </div>
-
-          <fieldset>
-            <div class="grid grid-cols-1 gap-3">
-              {#each roleOptions as roleOption}
-                <label 
-                  class="relative flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all
-                    {role === roleOption.value 
-                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
-                      : 'border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700'}"
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value={roleOption.value}
-                    bind:group={role}
-                    class="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300"
-                  />
-                  <div class="ml-3">
-                    <span class="block text-sm font-medium text-gray-900 dark:text-white">
-                      {roleOption.label}
-                    </span>
-                    <span class="block text-xs text-gray-500 dark:text-gray-400">
-                      {roleOption.description}
-                    </span>
-                  </div>
-                </label>
-              {/each}
-            </div>
-            {#if roleError}
-              <p class="mt-2 text-sm text-red-600 dark:text-red-400">{roleError}</p>
-            {/if}
-          </fieldset>
-
-          <div class="flex space-x-4">
-            <Button
-              type="button"
-              onclick={(e) => { e.preventDefault(); prevStep(); }}
-              variant="secondary"
-              size="lg"
-              class="flex-1"
-            >
-              Back
-            </Button>
-            <Button
-              type="button"
-              onclick={(e) => { e.preventDefault(); nextStep(); }}
-              variant="primary"
-              size="lg"
-              class="flex-1"
-              disabled={!role}
-            >
-              Continue
-            </Button>
-          </div>
-        </div>
-      {/if}
-
-      <!-- Step 3: Account Details -->
-      {#if currentStep === 3}
-        <form onsubmit={(e) => { e.preventDefault(); handleWalletRegister(); }} class="space-y-6">
-          <div class="text-center mb-6">
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Account Details
-            </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400">
-              Complete your profile information
-            </p>
-          </div>
-          
-          <!-- Username Input -->
-          <div>
-            <div class="relative">
-              <Input
-                type="text"
-                label="Username"
-                placeholder="Choose a unique username"
-                bind:value={username}
-                oninput={handleUsernameChange}
-                error={usernameError}
-                required
-                disabled={loading}
-              />
-              {#if checkingUsername}
-                <div class="absolute right-3 top-9">
-                  <div class="animate-spin h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full"></div>
-                </div>
-              {:else if usernameAvailable === true && username}
-                <div class="absolute right-3 top-9">
-                  <span class="text-green-500">✓</span>
-                </div>
-              {:else if usernameAvailable === false && username}
-                <div class="absolute right-3 top-9">
-                  <span class="text-red-500">✗</span>
-                </div>
-              {/if}
-            </div>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Lowercase letters, numbers, hyphens, and underscores only
-            </p>
-          </div>
-
+        <div class="space-y-5">
           <!-- Email Input -->
           <div>
             <div class="relative">
@@ -436,7 +227,6 @@
                 oninput={handleEmailChange}
                 error={emailError}
                 required
-                disabled={loading}
               />
               {#if checkingEmail}
                 <div class="absolute right-3 top-9">
@@ -454,38 +244,127 @@
             </div>
           </div>
 
-          <!-- Display Name Input -->
+          <!-- Username Input -->
           <div>
-            <Input
-              type="text"
-              label="Display Name"
-              placeholder="Your full name"
-              bind:value={displayName}
-              error={displayNameError}
-              required
-              disabled={loading}
+            <div class="relative">
+              <Input
+                type="text"
+                label="Username"
+                placeholder="Choose a unique username"
+                bind:value={username}
+                oninput={handleUsernameChange}
+                error={usernameError}
+                required
+              />
+              {#if checkingUsername}
+                <div class="absolute right-3 top-9">
+                  <div class="animate-spin h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full"></div>
+                </div>
+              {:else if usernameAvailable === true && username}
+                <div class="absolute right-3 top-9">
+                  <span class="text-green-500">✓</span>
+                </div>
+              {:else if usernameAvailable === false && username}
+                <div class="absolute right-3 top-9">
+                  <span class="text-red-500">✗</span>
+                </div>
+              {/if}
+            </div>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              This will also be your display name
+            </p>
+          </div>
+
+          <!-- Wallet Connection -->
+          <div class="pt-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Connect Wallet (BNB Testnet)
+            </label>
+            <WalletConnect 
+              showBalance={false}
+              variant="secondary"
+              size="md"
+              class="w-full"
             />
+            {#if $walletStore.isConnected}
+              <p class="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <span>✓</span> Wallet connected to BNB Testnet
+              </p>
+            {/if}
           </div>
 
           <!-- Terms and Conditions -->
-          <div class="flex items-start">
+          <div class="flex items-start pt-2">
             <input
               type="checkbox"
               id="terms"
               bind:checked={agreedToTerms}
-              disabled={loading}
               class="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded"
             />
             <label for="terms" class="ml-2 text-sm text-gray-600 dark:text-gray-400">
               I agree to the 
-              <a href="/terms" class="text-orange-500 hover:text-orange-600 underline">Terms of Service</a>
+              <a href="/terms" class="text-orange-500 hover:text-orange-600 underline">Terms</a>
               and 
               <a href="/privacy" class="text-orange-500 hover:text-orange-600 underline">Privacy Policy</a>
             </label>
           </div>
 
-          <!-- Navigation Buttons -->
-          <div class="flex space-x-4">
+          <!-- Continue Button -->
+          <Button
+            type="button"
+            onclick={(e) => { e.preventDefault(); nextStep(); }}
+            variant="primary"
+            size="lg"
+            class="w-full"
+            disabled={!email || !username || !$walletStore.isConnected || !agreedToTerms}
+          >
+            Continue
+          </Button>
+        </div>
+      {/if}
+
+      <!-- Step 2: Role Selection -->
+      {#if currentStep === 2}
+        <div class="space-y-6">
+          <div class="text-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-1">
+              Choose Your Role
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+              What best describes you?
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3">
+            {#each roleOptions as roleOption}
+              <button
+                type="button"
+                onclick={() => { role = roleOption.value; roleError = ''; }}
+                class="relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all text-left
+                  {role === roleOption.value 
+                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' 
+                    : 'border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700'}"
+              >
+                <span class="text-2xl mr-3">{roleOption.icon}</span>
+                <div>
+                  <span class="block text-sm font-medium text-gray-900 dark:text-white">
+                    {roleOption.label}
+                  </span>
+                  <span class="block text-xs text-gray-500 dark:text-gray-400">
+                    {roleOption.description}
+                  </span>
+                </div>
+                {#if role === roleOption.value}
+                  <span class="absolute right-4 text-orange-500">✓</span>
+                {/if}
+              </button>
+            {/each}
+          </div>
+          {#if roleError}
+            <p class="text-sm text-red-600 dark:text-red-400">{roleError}</p>
+          {/if}
+
+          <div class="flex space-x-4 pt-2">
             <Button
               type="button"
               onclick={(e) => { e.preventDefault(); prevStep(); }}
@@ -497,27 +376,25 @@
               Back
             </Button>
             <Button
-              type="submit"
+              type="button"
+              onclick={(e) => { e.preventDefault(); handleRegister(); }}
               variant="primary"
               size="lg"
-              loading={loading}
-              disabled={loading || !agreedToTerms}
               class="flex-1"
+              loading={loading}
+              disabled={loading || !role}
             >
-              {loading ? 'Creating Account...' : 'Create Account'}
+              {loading ? 'Creating...' : 'Create Account'}
             </Button>
           </div>
-        </form>
+        </div>
       {/if}
 
       <!-- Sign In Link -->
       <div class="mt-8 text-center">
         <p class="text-sm text-gray-600 dark:text-gray-400">
           Already have an account?
-          <a 
-            href="/auth/login" 
-            class="text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300 font-medium"
-          >
+          <a href="/auth/login" class="text-orange-500 hover:text-orange-600 font-medium">
             Sign in
           </a>
         </p>
@@ -532,7 +409,7 @@
       <div class="flex justify-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
         <span>✓ No Passwords</span>
         <span>✓ Crypto Payments</span>
-        <span>✓ Decentralized</span>
+        <span>✓ BNB Testnet</span>
       </div>
     </div>
   </div>
