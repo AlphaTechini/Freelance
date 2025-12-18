@@ -32,6 +32,11 @@
   const availableTokens = ['USDT', 'ETH', 'BTC'];
   
   onMount(async () => {
+    // Check if user is authenticated
+    if (!$authStore.user && !$authStore.isWalletConnected) {
+      goto('/auth/login');
+      return;
+    }
     await loadProfile();
   });
   

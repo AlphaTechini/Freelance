@@ -13,15 +13,15 @@
         
         if (userRole === 'recruiter') {
           goto('/dashboard/recruiter');
-        } else if (userRole === 'freelancer' || userRole === 'candidate') {
+        } else if (userRole === 'freelancer' || userRole === 'student' || userRole === 'graduate') {
           goto('/dashboard/candidate');
         } else if (userRole) {
           // Has some role, default to candidate dashboard
           goto('/dashboard/candidate');
         } else {
-          // No role found, might need to complete profile
-          console.log('No user role found, redirecting to profile setup');
-          goto('/profile');
+          // No role found, redirect to profile edit to complete setup
+          console.log('No user role found, redirecting to profile edit');
+          goto('/profile/edit');
         }
       } else if (!auth.loading && !auth.user && !auth.isWalletConnected) {
         // User not authenticated, redirect to login

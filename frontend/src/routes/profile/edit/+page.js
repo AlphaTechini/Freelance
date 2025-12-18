@@ -1,8 +1,4 @@
-import { requireAuth } from '$lib/utils/auth-guard.js';
-
+// Auth check is handled in the component itself
 export function load() {
-  // Require authentication to access this page
-  requireAuth();
-  
   return {};
 }

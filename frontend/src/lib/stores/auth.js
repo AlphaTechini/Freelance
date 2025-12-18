@@ -66,8 +66,16 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
   try {
     authStore.update(store => ({ ...store, loading: true, error: null }));
 
-    // Step 1: Connect wallet first
-    const { address } = await connectWallet(walletType);
+    // Step 1: Get wallet address (use existing connection if available)
+    const currentWallet = get(walletStore);
+    let address;
+    
+    if (currentWallet.isConnected && currentWallet.address) {
+      address = currentWallet.address;
+    } else {
+      const result = await connectWallet(walletType);
+      address = result.address;
+    }
     
     // Step 2: Request nonce from backend
     const { nonce } = await withWarmupHandling(
@@ -132,8 +140,16 @@ export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
   try {
     authStore.update(store => ({ ...store, loading: true, error: null }));
 
-    // Step 1: Connect wallet
-    const { address } = await connectWallet(walletType);
+    // Step 1: Get wallet address (use existing connection if available)
+    const currentWallet = get(walletStore);
+    let address;
+    
+    if (currentWallet.isConnected && currentWallet.address) {
+      address = currentWallet.address;
+    } else {
+      const result = await connectWallet(walletType);
+      address = result.address;
+    }
 
     // Step 2: Request nonce from backend
     const { nonce } = await withWarmupHandling(
