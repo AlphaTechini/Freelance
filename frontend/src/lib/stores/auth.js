@@ -85,10 +85,18 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
     const signature = await signAuthMessage(nonce);
 
     // Step 4: Verify signature and get JWT
-    const { token, user, isNewUser } = await withWarmupHandling(
+    const verifyResponse = await withWarmupHandling(
       () => apiService.verifyWalletSignature(address, signature, nonce),
       { retries: 3, retryDelay: 1500 }
     );
+    
+    console.log('Wallet verification response:', { 
+      isNewUser: verifyResponse.isNewUser, 
+      hasUser: !!verifyResponse.user,
+      address 
+    });
+
+    const { token, user, isNewUser } = verifyResponse;
 
     // Step 5: If new user, register with profile data
     if (isNewUser) {

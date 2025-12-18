@@ -76,12 +76,18 @@ export default async function authRoutes(fastify, options) {
           properties: {
             token: { type: 'string' },
             user: {
-              type: 'object',
+              type: ['object', 'null'],
               properties: {
+                id: { type: 'string' },
+                username: { type: 'string' },
                 walletAddress: { type: 'string' },
-                firebaseUid: { type: 'string' }
+                email: { type: 'string' },
+                displayName: { type: 'string' },
+                profileImage: { type: 'string' },
+                role: { type: 'string' }
               }
-            }
+            },
+            isNewUser: { type: 'boolean' }
           }
         }
       }
@@ -104,6 +110,7 @@ export default async function authRoutes(fastify, options) {
       let user;
       try {
         user = await userService.getUserByWallet(normalizedAddress);
+        fastify.log.info(`Found existing user for wallet ${normalizedAddress}: ${user?.username || 'unknown'}`);
         
         // Verify nonce matches if user exists
         if (user && user.nonce !== nonce) {
@@ -117,6 +124,7 @@ export default async function authRoutes(fastify, options) {
         }
       } catch (error) {
         // User doesn't exist, this is handled in registration
+        fastify.log.info(`No user found for wallet ${normalizedAddress}, isNewUser will be true`);
         user = null;
       }
       
