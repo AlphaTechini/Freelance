@@ -4,9 +4,12 @@ import { isValidEmail, isValidEthereumAddress, sanitizeString } from './validati
 export const validateUserCreation = (userData) => {
   const errors = [];
   
-  // Validate Firebase UID
-  if (!userData.firebaseUid || typeof userData.firebaseUid !== 'string' || userData.firebaseUid.trim().length === 0) {
-    errors.push('Firebase UID is required');
+  // Firebase UID is optional for wallet-only auth
+  // If provided, validate it
+  if (userData.firebaseUid !== undefined && userData.firebaseUid !== null) {
+    if (typeof userData.firebaseUid !== 'string' || userData.firebaseUid.trim().length === 0) {
+      errors.push('Firebase UID must be a non-empty string if provided');
+    }
   }
   
   // Validate wallet address

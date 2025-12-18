@@ -19,14 +19,18 @@ class UserService {
       const sanitizedData = sanitizeUserData(userData);
       
       // Check if user already exists
-      const existingUser = await User.findOne({
-        $or: [
-          { username: userData.username.toLowerCase() },
-          { firebaseUid: userData.firebaseUid },
-          { walletAddress: userData.walletAddress.toLowerCase() },
-          { email: userData.email.toLowerCase() }
-        ]
-      });
+      const orConditions = [
+        { username: userData.username.toLowerCase() },
+        { walletAddress: userData.walletAddress.toLowerCase() },
+        { email: userData.email.toLowerCase() }
+      ];
+      
+      // Only check firebaseUid if provided
+      if (userData.firebaseUid) {
+        orConditions.push({ firebaseUid: userData.firebaseUid });
+      }
+      
+      const existingUser = await User.findOne({ $or: orConditions });
       
       if (existingUser) {
         if (existingUser.username === userData.username.toLowerCase()) {
@@ -48,10 +52,9 @@ class UserService {
         throw new Error('Valid role is required (freelancer, recruiter, student, graduate, phd)');
       }
       
-      // Create user
-      const user = new User({
+      // Create user - firebaseUid is optional for wallet-only auth
+      const userDoc = {
         username: userData.username.toLowerCase(),
-        firebaseUid: userData.firebaseUid,
         walletAddress: userData.walletAddress.toLowerCase(),
         email: userData.email.toLowerCase(),
         displayName: sanitizedData.displayName,
@@ -64,7 +67,14 @@ class UserService {
           notifications: true,
           emailNotifications: true
         }
-      });
+      };
+      
+      // Only add firebaseUid if provided
+      if (userData.firebaseUid) {
+        userDoc.firebaseUid = userData.firebaseUid;
+      }
+      
+      const user = new User(userDoc);
       
       await user.save();
       
