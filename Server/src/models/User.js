@@ -215,7 +215,7 @@ userSchema.statics.searchUsers = function(query, options = {}) {
 };
 
 // Pre-save middleware to normalize fields
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', function(next) {
   // Normalize fields
   if (this.isModified('walletAddress')) {
     this.walletAddress = this.walletAddress.toLowerCase();
