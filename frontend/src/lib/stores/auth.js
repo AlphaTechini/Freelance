@@ -98,6 +98,12 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
 
     const { token, user, isNewUser } = verifyResponse;
 
+    // IMPORTANT: Store token immediately after verification so subsequent API calls work
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      apiService.setToken(token);
+    }
+
     // Step 5: If new user, register with profile data
     if (isNewUser) {
       const registrationResponse = await withWarmupHandling(

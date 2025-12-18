@@ -143,6 +143,9 @@
       // Step 3: Register with wallet
       await signUpWithWallet(username, email, username, role, WALLET_TYPES.METAMASK);
       
+      // Small delay to ensure token is fully stored before redirect
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Redirect to profile edit
       goto('/profile/edit');
     } catch (err) {

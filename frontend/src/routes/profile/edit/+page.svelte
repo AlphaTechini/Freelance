@@ -37,6 +37,13 @@
       goto('/auth/login');
       return;
     }
+    
+    // Wait a bit for token to be set if coming from registration
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      apiService.setToken(token);
+    }
+    
     await loadProfile();
   });
   
