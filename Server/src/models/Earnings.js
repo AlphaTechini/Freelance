@@ -170,14 +170,12 @@ earningsSchema.methods.getEarningsByToken = function(tokenType) {
   };
 };
 
-// Pre-save middleware
-earningsSchema.pre('save', function(next) {
+// Pre-save middleware (Mongoose 9+ style)
+earningsSchema.pre('save', function() {
   // Sort transactions by date (newest first)
   if (this.transactions && this.transactions.length > 0) {
     this.transactions.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
   }
-
-  next();
 });
 
 const Earnings = mongoose.model('Earnings', earningsSchema);

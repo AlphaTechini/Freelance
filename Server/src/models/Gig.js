@@ -238,12 +238,11 @@ gigSchema.statics.findByOwner = function(ownerId, includeInactive = false) {
     .sort({ createdAt: -1 });
 };
 
-// Pre-save middleware to ensure at least one package is defined
-gigSchema.pre('save', function(next) {
+// Pre-save middleware to ensure at least one package is defined (Mongoose 9+ style)
+gigSchema.pre('save', function() {
   if (!this.pricing.packages.basic && !this.pricing.packages.standard && !this.pricing.packages.premium) {
-    return next(new Error('At least one pricing package must be defined'));
+    throw new Error('At least one pricing package must be defined');
   }
-  next();
 });
 
 const Gig = mongoose.model('Gig', gigSchema);

@@ -214,8 +214,8 @@ userSchema.statics.searchUsers = function(query, options = {}) {
     .select('-firebaseUid -__v');
 };
 
-// Pre-save middleware to normalize fields
-userSchema.pre('save', function(next) {
+// Pre-save middleware to normalize fields (Mongoose 9+ style - no next callback)
+userSchema.pre('save', function() {
   // Normalize fields
   if (this.isModified('walletAddress')) {
     this.walletAddress = this.walletAddress.toLowerCase();
@@ -226,7 +226,6 @@ userSchema.pre('save', function(next) {
   if (this.isModified('username')) {
     this.username = this.username.toLowerCase();
   }
-  next();
 });
 
 const User = mongoose.model('User', userSchema);

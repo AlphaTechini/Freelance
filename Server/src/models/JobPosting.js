@@ -218,8 +218,8 @@ jobPostingSchema.methods.incrementViews = function() {
   return this.save();
 };
 
-// Pre-save middleware
-jobPostingSchema.pre('save', function(next) {
+// Pre-save middleware (Mongoose 9+ style)
+jobPostingSchema.pre('save', function() {
   // Ensure shortlist doesn't exceed maxCandidates
   if (this.shortlist && this.shortlist.length > this.maxCandidates) {
     // Keep only the highest scoring candidates
@@ -231,14 +231,11 @@ jobPostingSchema.pre('save', function(next) {
   if (this.shortlist && this.shortlist.length > 0 && !this.analytics.shortlistGenerated) {
     this.analytics.shortlistGenerated = new Date();
   }
-
-  next();
 });
 
-// Pre-remove middleware
-jobPostingSchema.pre('remove', function(next) {
+// Pre-remove middleware (Mongoose 9+ style)
+jobPostingSchema.pre('remove', function() {
   // Clean up any related data if needed
-  next();
 });
 
 const JobPosting = mongoose.model('JobPosting', jobPostingSchema);

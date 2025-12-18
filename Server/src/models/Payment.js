@@ -155,8 +155,8 @@ paymentSchema.methods.fail = function() {
   return this.save();
 };
 
-// Pre-save middleware
-paymentSchema.pre('save', function(next) {
+// Pre-save middleware (Mongoose 9+ style)
+paymentSchema.pre('save', function() {
   // Generate transaction ID if not provided
   if (!this.transactionId) {
     this.transactionId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -166,8 +166,6 @@ paymentSchema.pre('save', function(next) {
   if (this.isModified('status') && this.status === 'completed' && !this.completedAt) {
     this.completedAt = new Date();
   }
-
-  next();
 });
 
 const Payment = mongoose.model('Payment', paymentSchema);
