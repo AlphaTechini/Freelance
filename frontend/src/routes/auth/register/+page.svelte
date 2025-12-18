@@ -1,11 +1,13 @@
 <script>
   import { goto } from '$app/navigation';
   import { authStore, signUpWithWallet } from '$lib/stores/auth.js';
-  import { walletStore, WALLET_TYPES } from '$lib/services/wallet.js';
+  import { walletStore, connectWallet, switchNetwork, WALLET_TYPES } from '$lib/services/wallet.js';
   import { apiService } from '$lib/services/api.js';
   import Button from '$lib/components/ui/Button.svelte';
   import Input from '$lib/components/ui/Input.svelte';
-  import WalletConnect from '$lib/components/WalletConnect.svelte';
+
+  // BNB Testnet chain ID
+  const BNB_TESTNET_CHAIN_ID = 97;
 
   let username = $state('');
   let email = $state('');
@@ -18,7 +20,7 @@
   let checkingUsername = $state(false);
   let checkingEmail = $state(false);
   
-  // Step management: Step 1 = Details + Wallet, Step 2 = Role
+  // Step management: Step 1 = Details, Step 2 = Role + Connect Wallet & Register
   let currentStep = $state(1);
   const totalSteps = 2;
 
@@ -27,7 +29,7 @@
   let emailError = $state('');
   let roleError = $state('');
   
-  // Role options (removed PhD candidate)
+  // Role options
   const roleOptions = [
     { value: 'freelancer', label: 'Freelancer', description: 'Offer your services and skills', icon: '💼' },
     { value: 'student', label: 'Student', description: 'Currently pursuing education', icon: '📚' },
@@ -41,7 +43,7 @@
     if (value.length > 30) return 'Username must be less than 30 characters';
     const usernameRegex = /^[a-z0-9_-]+$/;
     if (!usernameRegex.test(value.toLowerCase())) {
-      return 'Username can only contain lowercase letters, numbers, hyphens, and underscores';
+      return 'Only lowercase letters, numbers, hyphens, and underscores';
     }
     return '';
   }
@@ -55,7 +57,7 @@
       checkingUsername = true;
       const response = await apiService.checkUsernameAvailability(value);
       usernameAvailable = response.available;
-      if (!response.available) usernameError = 'This username is already taken';
+      if (!response.available) usernameError = 'Username already taken';
     } catch (err) {
       console.error('Error checking username:', err);
     } finally {
@@ -66,7 +68,7 @@
   function validateEmail(value) {
     if (!value) return 'Email is required';
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) return 'Please enter a valid email address';
+    if (!emailRegex.test(value)) return 'Please enter a valid email';
     return '';
   }
 
@@ -79,7 +81,7 @@
       checkingEmail = true;
       const response = await apiService.checkEmailAvailability(value);
       emailAvailable = response.available;
-      if (!response.available) emailError = 'This email is already registered';
+      if (!response.available) emailError = 'Email already registered';
     } catch (err) {
       console.error('Error checking email:', err);
     } finally {
@@ -88,21 +90,16 @@
   }
 
   function nextStep() {
-    // Validate Step 1
     usernameError = validateUsername(username);
     emailError = validateEmail(email);
     
     if (usernameError || emailError) return;
     if (usernameAvailable === false) {
-      usernameError = 'This username is already taken';
+      usernameError = 'Username already taken';
       return;
     }
     if (emailAvailable === false) {
-      emailError = 'This email is already registered';
-      return;
-    }
-    if (!$walletStore.isConnected) {
-      error = 'Please connect your wallet first';
+      emailError = 'Email already registered';
       return;
     }
     if (!agreedToTerms) {
@@ -131,15 +128,29 @@
       loading = true;
       error = '';
       
-      // Username = Display Name
+      // Step 1: Connect wallet (this will prompt MetaMask)
+      const { address, chainId } = await connectWallet(WALLET_TYPES.METAMASK);
+      
+      // Step 2: Switch to BNB Testnet if needed
+      if (chainId !== BNB_TESTNET_CHAIN_ID) {
+        try {
+          await switchNetwork(BNB_TESTNET_CHAIN_ID);
+        } catch (switchErr) {
+          console.warn('Could not auto-switch network:', switchErr.message);
+        }
+      }
+      
+      // Step 3: Register with wallet
       await signUpWithWallet(username, email, username, role, WALLET_TYPES.METAMASK);
       
-      // Redirect to profile edit page to complete remaining info
+      // Redirect to profile edit
       goto('/profile/edit');
     } catch (err) {
       console.error('Registration error:', err);
-      if (err.message?.includes('already')) {
-        error = 'This account already exists. Please sign in instead.';
+      if (err.message?.includes('already exists')) {
+        error = 'This wallet is already registered. Please sign in instead.';
+      } else if (err.message?.includes('rejected')) {
+        error = 'Wallet connection was rejected. Please try again.';
       } else {
         error = err.message || 'Failed to create account';
       }
@@ -208,12 +219,12 @@
           </div>
         </div>
         <div class="flex justify-center mt-2 text-xs text-gray-500 gap-12">
-          <span>Account</span>
-          <span>Role</span>
+          <span>Details</span>
+          <span>Role & Wallet</span>
         </div>
       </div>
 
-      <!-- Step 1: Account Details + Wallet -->
+      <!-- Step 1: Account Details -->
       {#if currentStep === 1}
         <div class="space-y-5">
           <!-- Email Input -->
@@ -275,24 +286,6 @@
             </p>
           </div>
 
-          <!-- Wallet Connection -->
-          <div class="pt-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Connect Wallet (BNB Testnet)
-            </label>
-            <WalletConnect 
-              showBalance={false}
-              variant="secondary"
-              size="md"
-              class="w-full"
-            />
-            {#if $walletStore.isConnected}
-              <p class="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                <span>✓</span> Wallet connected to BNB Testnet
-              </p>
-            {/if}
-          </div>
-
           <!-- Terms and Conditions -->
           <div class="flex items-start pt-2">
             <input
@@ -316,14 +309,14 @@
             variant="primary"
             size="lg"
             class="w-full"
-            disabled={!email || !username || !$walletStore.isConnected || !agreedToTerms}
+            disabled={!email || !username || !agreedToTerms}
           >
             Continue
           </Button>
         </div>
       {/if}
 
-      <!-- Step 2: Role Selection -->
+      <!-- Step 2: Role Selection + Wallet Connect -->
       {#if currentStep === 2}
         <div class="space-y-6">
           <div class="text-center mb-4">
@@ -364,6 +357,13 @@
             <p class="text-sm text-red-600 dark:text-red-400">{roleError}</p>
           {/if}
 
+          <!-- Info about wallet connection -->
+          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <p class="text-sm text-blue-800 dark:text-blue-200">
+              <span class="font-medium">🔗 Next:</span> Clicking "Create Account" will connect your MetaMask wallet to BNB Testnet and complete registration.
+            </p>
+          </div>
+
           <div class="flex space-x-4 pt-2">
             <Button
               type="button"
@@ -384,7 +384,7 @@
               loading={loading}
               disabled={loading || !role}
             >
-              {loading ? 'Creating...' : 'Create Account'}
+              {loading ? 'Connecting...' : 'Create Account'}
             </Button>
           </div>
         </div>

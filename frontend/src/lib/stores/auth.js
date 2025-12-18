@@ -66,16 +66,14 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
   try {
     authStore.update(store => ({ ...store, loading: true, error: null }));
 
-    // Step 1: Get wallet address (use existing connection if available)
+    // Step 1: Get wallet address from current connection (wallet should already be connected by the register page)
     const currentWallet = get(walletStore);
-    let address;
     
-    if (currentWallet.isConnected && currentWallet.address) {
-      address = currentWallet.address;
-    } else {
-      const result = await connectWallet(walletType);
-      address = result.address;
+    if (!currentWallet.isConnected || !currentWallet.address) {
+      throw new Error('Wallet not connected. Please connect your wallet first.');
     }
+    
+    const address = currentWallet.address;
     
     // Step 2: Request nonce from backend
     const { nonce } = await withWarmupHandling(
