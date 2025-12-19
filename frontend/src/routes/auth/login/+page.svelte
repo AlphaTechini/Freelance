@@ -20,13 +20,12 @@
       error = '';
       
       loadingMessage = 'Requesting signature...';
-      await signInWithWallet(WALLET_TYPES.METAMASK);
+      const user = await signInWithWallet(WALLET_TYPES.METAMASK);
       
-      loadingMessage = 'Success! Redirecting...';
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Redirect to dashboard after successful login
-      goto('/dashboard');
+      // Redirect immediately after successful login
+      if (user) {
+        goto('/dashboard', { replaceState: true });
+      }
     } catch (err) {
       console.error('Wallet login error:', err);
       error = err.message || 'Failed to authenticate with wallet';

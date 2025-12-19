@@ -145,28 +145,23 @@
       
       // Step 3: Register with wallet
       loadingMessage = 'Creating your account...';
-      await signUpWithWallet(username, email, username, role, WALLET_TYPES.METAMASK);
+      const user = await signUpWithWallet(username, email, username, role, WALLET_TYPES.METAMASK);
       
-      // Success!
-      loadingMessage = 'Success! Redirecting...';
-      
-      // Small delay to show success message
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Redirect to profile edit
-      goto('/profile/edit');
+      // Success! Redirect immediately
+      if (user) {
+        goto('/profile/edit', { replaceState: true });
+      }
     } catch (err) {
       console.error('Registration error:', err);
       loadingMessage = '';
       
       if (err.message?.includes('already exists') || err.message?.includes('already registered')) {
         if (err.message?.includes('Redirecting to dashboard')) {
-          // User is already registered and logged in, redirect them
-          error = 'You are already registered! Redirecting...';
-          setTimeout(() => goto('/dashboard'), 1500);
+          // User is already registered and logged in, redirect them immediately
+          goto('/dashboard', { replaceState: true });
         } else {
           error = 'This wallet/email is already registered. Please sign in instead.';
-          setTimeout(() => goto('/auth/login'), 2000);
+          setTimeout(() => goto('/auth/login', { replaceState: true }), 1500);
         }
       } else if (err.message?.includes('rejected')) {
         error = 'Wallet connection was rejected. Please try again.';
