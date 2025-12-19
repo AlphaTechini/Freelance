@@ -52,6 +52,13 @@
       loading = true;
       error = '';
       
+      // Double-check token is set
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No authentication token found. Please sign in again.');
+      }
+      apiService.setToken(token);
+      
       // Get user info first to determine role
       const userResponse = await apiService.getProfile();
       
@@ -114,6 +121,14 @@
       }
     } catch (err) {
       error = 'Failed to load profile: ' + err.message;
+      
+      // If unauthorized, redirect to login
+      if (err.message?.includes('Unauthorized') || err.message?.includes('No Authorization') || err.message?.includes('No authentication token')) {
+        console.error('Auth error, redirecting to login');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        setTimeout(() => goto('/auth/login'), 1500);
+      }
     } finally {
       loading = false;
     }

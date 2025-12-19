@@ -18,47 +18,66 @@ export const authStore = writable({
 });
 
 // Initialize auth state from localStorage
-export const initializeAuth = () => {
-  return new Promise((resolve) => {
-    try {
-      // Check for stored JWT token
-      const storedToken = localStorage.getItem('auth_token');
-      const storedUser = localStorage.getItem('auth_user');
+export const initializeAuth = async () => {
+  try {
+    // Check for stored JWT token
+    const storedToken = localStorage.getItem('auth_token');
+    const storedUser = localStorage.getItem('auth_user');
+    
+    if (storedToken && storedUser) {
+      // Set token in API service
+      apiService.setToken(storedToken);
       
-      if (storedToken && storedUser) {
-        // Set token in API service
-        apiService.setToken(storedToken);
-        
-        // Parse and set user data
-        const userData = JSON.parse(storedUser);
-        authStore.set({
-          user: userData,
-          loading: false,
-          error: null
-        });
-      } else {
-        // No stored auth data
+      // Parse and set user data
+      const userData = JSON.parse(storedUser);
+      
+      // Verify token is still valid by fetching profile
+      try {
+        const profileResponse = await apiService.getProfile();
+        if (profileResponse.success && profileResponse.user) {
+          // Token is valid, update with fresh user data
+          localStorage.setItem('auth_user', JSON.stringify(profileResponse.user));
+          authStore.set({
+            user: profileResponse.user,
+            loading: false,
+            error: null
+          });
+        } else {
+          throw new Error('Invalid token');
+        }
+      } catch (verifyError) {
+        // Token is invalid, clear everything
+        console.warn('Stored token is invalid, clearing auth data');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        apiService.setToken(null);
         authStore.set({
           user: null,
           loading: false,
           error: null
         });
       }
-    } catch (error) {
-      console.error('Error initializing auth:', error);
-      // Clear invalid stored data
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      
+    } else {
+      // No stored auth data
       authStore.set({
         user: null,
         loading: false,
-        error: error.message
+        error: null
       });
     }
+  } catch (error) {
+    console.error('Error initializing auth:', error);
+    // Clear invalid stored data
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    apiService.setToken(null);
     
-    resolve();
-  });
+    authStore.set({
+      user: null,
+      loading: false,
+      error: null
+    });
+  }
 };
 
 // Sign up with wallet (wallet-only registration)
@@ -106,40 +125,67 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
 
     // Step 5: If new user, register with profile data
     if (isNewUser) {
-      const registrationResponse = await withWarmupHandling(
-        () => apiService.registerUser({
-          username,
-          email,
-          displayName,
-          role
-        }, token),
-        { retries: 3, retryDelay: 1500 }
-      );
+      try {
+        const registrationResponse = await withWarmupHandling(
+          () => apiService.registerUser({
+            username,
+            email,
+            displayName,
+            role
+          }, token),
+          { retries: 3, retryDelay: 1500 }
+        );
 
-      if (registrationResponse.success) {
-        // Store auth data
-        localStorage.setItem('auth_token', registrationResponse.token);
-        localStorage.setItem('auth_user', JSON.stringify(registrationResponse.user));
+        if (registrationResponse.success) {
+          // Store auth data with new token from registration
+          localStorage.setItem('auth_token', registrationResponse.token);
+          localStorage.setItem('auth_user', JSON.stringify(registrationResponse.user));
+          
+          // Set token in API service
+          apiService.setToken(registrationResponse.token);
+          
+          // Update store
+          authStore.update(store => ({
+            ...store,
+            user: registrationResponse.user,
+            walletAddress: address,
+            isWalletConnected: true,
+            loading: false,
+            error: null
+          }));
+          
+          return registrationResponse.user;
+        } else {
+          throw new Error(registrationResponse.error?.message || 'Registration failed');
+        }
+      } catch (regError) {
+        // Clear the temporary token if registration fails
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        apiService.setToken(null);
+        throw regError;
+      }
+    } else {
+      // User already exists
+      if (user) {
+        // They're already registered, just log them in
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('auth_user', JSON.stringify(user));
+        apiService.setToken(token);
         
-        // Set token in API service
-        apiService.setToken(registrationResponse.token);
-        
-        // Update store
         authStore.update(store => ({
           ...store,
-          user: registrationResponse.user,
+          user,
           walletAddress: address,
           isWalletConnected: true,
           loading: false,
           error: null
         }));
         
-        return registrationResponse.user;
+        throw new Error('User already exists. Redirecting to dashboard...');
       } else {
-        throw new Error(registrationResponse.error?.message || 'Registration failed');
+        throw new Error('User already exists. Please sign in instead.');
       }
-    } else {
-      throw new Error('User already exists. Please sign in instead.');
     }
   } catch (error) {
     authStore.update(store => ({ ...store, loading: false, error: error.message }));
@@ -173,12 +219,18 @@ export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
     const signature = await signAuthMessage(nonce);
 
     // Step 4: Verify signature and get JWT
-    const { token, user, isNewUser } = await withWarmupHandling(
+    const verifyResponse = await withWarmupHandling(
       () => apiService.verifyWalletSignature(address, signature, nonce),
       { retries: 3, retryDelay: 1500 }
     );
     
-    if (isNewUser) {
+    const { token, user, isNewUser } = verifyResponse;
+    
+    if (isNewUser || !user) {
+      // Clear any stale data
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      apiService.setToken(null);
       throw new Error('No account found. Please register first.');
     }
 
@@ -202,8 +254,15 @@ export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
     return user;
   } catch (error) {
     console.error('Wallet authentication failed:', error);
+    
+    // Clear any stored auth data on error
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    apiService.setToken(null);
+    
     authStore.update(store => ({
       ...store,
+      user: null,
       loading: false,
       error: error.message
     }));
@@ -238,6 +297,20 @@ export const signOutUser = async () => {
 // Get current user's JWT token
 export const getCurrentUserToken = async () => {
   return localStorage.getItem('auth_token');
+};
+
+// Clear all auth data (helper function)
+export const clearAuthData = () => {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
+  apiService.setToken(null);
+  authStore.set({
+    user: null,
+    walletAddress: null,
+    isWalletConnected: false,
+    loading: false,
+    error: null
+  });
 };
 
 // ===== Wallet Authentication Methods =====

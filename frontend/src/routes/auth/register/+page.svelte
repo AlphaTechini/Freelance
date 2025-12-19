@@ -150,10 +150,23 @@
       goto('/profile/edit');
     } catch (err) {
       console.error('Registration error:', err);
-      if (err.message?.includes('already exists')) {
-        error = 'This wallet is already registered. Please sign in instead.';
+      if (err.message?.includes('already exists') || err.message?.includes('already registered')) {
+        if (err.message?.includes('Redirecting to dashboard')) {
+          // User is already registered and logged in, redirect them
+          error = 'You are already registered! Redirecting...';
+          setTimeout(() => goto('/dashboard'), 1500);
+        } else {
+          error = 'This wallet/email is already registered. Please sign in instead.';
+          setTimeout(() => goto('/auth/login'), 2000);
+        }
       } else if (err.message?.includes('rejected')) {
         error = 'Wallet connection was rejected. Please try again.';
+      } else if (err.message?.includes('USERNAME_TAKEN')) {
+        error = 'This username is already taken. Please choose another.';
+        currentStep = 1; // Go back to step 1
+      } else if (err.message?.includes('EMAIL_TAKEN')) {
+        error = 'This email is already registered. Please use another or sign in.';
+        currentStep = 1; // Go back to step 1
       } else {
         error = err.message || 'Failed to create account';
       }
