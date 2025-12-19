@@ -42,16 +42,22 @@ export default async function authRoutes(fastify, options) {
     const nonce = crypto.randomBytes(32).toString('hex');
     const expiresAt = Date.now() + NONCE_EXPIRATION;
     
+    fastify.log.info(`📝 Nonce requested for wallet: ${normalizedAddress}`);
+    
     // Try to find existing user and update their nonce
     try {
       const user = await User.findByWallet(normalizedAddress);
       if (user) {
+        fastify.log.info(`✅ Found existing user ${user.username}, updating nonce`);
         user.nonce = nonce;
         await user.save();
+        fastify.log.info(`✅ Nonce saved for user ${user.username}: ${nonce.substring(0, 10)}...`);
+      } else {
+        fastify.log.info(`ℹ️ No existing user found for wallet, nonce will be stored during registration`);
       }
     } catch (error) {
       // User doesn't exist yet, that's okay for registration
-      fastify.log.info('No existing user found for wallet, nonce will be stored during registration');
+      fastify.log.warn(`⚠️ Could not update nonce for wallet: ${error.message}`);
     }
     
     return { nonce, expiresAt };
@@ -107,24 +113,35 @@ export default async function authRoutes(fastify, options) {
       }
       
       // Get or create user
-      let user;
+      let user = null;
+      let userDoc = null;
+      
       try {
-        user = await userService.getUserByWallet(normalizedAddress);
-        fastify.log.info(`Found existing user for wallet ${normalizedAddress}: ${user?.username || 'unknown'}`);
+        // Get the Mongoose document directly
+        userDoc = await User.findByWallet(normalizedAddress);
         
-        // Verify nonce matches if user exists
-        if (user && user.nonce !== nonce) {
-          return reply.code(401).send({ error: 'Invalid nonce' });
-        }
-        
-        // Clear nonce after successful verification
-        if (user) {
-          user.nonce = '';
-          await user.save();
+        if (userDoc) {
+          fastify.log.info(`✅ Found existing user for wallet ${normalizedAddress}: ${userDoc.username}`);
+          
+          // Verify nonce matches if user exists and has a nonce set
+          if (userDoc.nonce && userDoc.nonce !== nonce) {
+            fastify.log.warn(`❌ Nonce mismatch for ${normalizedAddress}. Expected: ${userDoc.nonce}, Got: ${nonce}`);
+            return reply.code(401).send({ error: 'Invalid nonce. Please try again.' });
+          }
+          
+          // Clear nonce after successful verification
+          userDoc.nonce = '';
+          await userDoc.save();
+          fastify.log.info(`✅ Cleared nonce for user ${userDoc.username}`);
+          
+          // Convert to sanitized user object
+          user = userService.sanitizeUserOutput(userDoc);
+        } else {
+          fastify.log.info(`ℹ️ No user found for wallet ${normalizedAddress}, this is a new user`);
         }
       } catch (error) {
-        // User doesn't exist, this is handled in registration
-        fastify.log.info(`No user found for wallet ${normalizedAddress}, isNewUser will be true`);
+        // User doesn't exist or database error
+        fastify.log.error(`❌ Error finding user for wallet ${normalizedAddress}: ${error.message}`);
         user = null;
       }
       
