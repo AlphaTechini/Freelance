@@ -32,34 +32,37 @@
   const availableTokens = ['USDT', 'ETH', 'BTC'];
   
   onMount(async () => {
+    // Wait for auth store to finish loading before checking
+    if ($authStore.loading) {
+      // Wait for auth to initialize
+      const unsubscribe = authStore.subscribe(store => {
+        if (!store.loading) {
+          unsubscribe();
+          checkAuthAndLoad();
+        }
+      });
+    } else {
+      await checkAuthAndLoad();
+    }
+  });
+  
+  async function checkAuthAndLoad() {
     // Check if user is authenticated
     if (!$authStore.user && !$authStore.isWalletConnected) {
       goto('/auth/login');
       return;
     }
     
-    // Wait a bit for token to be set if coming from registration
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      apiService.setToken(token);
-    }
-    
     await loadProfile();
-  });
+  }
   
   async function loadProfile() {
     try {
       loading = true;
       error = '';
       
-      // Double-check token is set
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No authentication token found. Please sign in again.');
-      }
-      apiService.setToken(token);
-      
       // Get user info first to determine role
+      // Cookie is sent automatically with credentials: 'include'
       const userResponse = await apiService.getProfile();
       
       if (userResponse.success && userResponse.user) {
@@ -123,11 +126,10 @@
       error = 'Failed to load profile: ' + err.message;
       
       // If unauthorized, redirect to login
-      if (err.message?.includes('Unauthorized') || err.message?.includes('No Authorization') || err.message?.includes('No authentication token')) {
+      if (err.message?.includes('Unauthorized') || err.message?.includes('No Authorization') || err.message?.includes('401')) {
         console.error('Auth error, redirecting to login');
-        localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
-        setTimeout(() => goto('/auth/login'), 1500);
+        goto('/auth/login');
       }
     } finally {
       loading = false;
