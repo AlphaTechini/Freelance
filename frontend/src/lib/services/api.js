@@ -8,7 +8,7 @@ class ApiService {
     this.token = null;
   }
 
-  // Set authentication token
+  // Set authentication token (for backward compatibility and SSR)
   setToken(token) {
     this.token = token;
   }
@@ -19,6 +19,7 @@ class ApiService {
       'Content-Type': 'application/json',
     };
 
+    // Include token in header as fallback (cookies are primary)
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
     }
@@ -26,11 +27,12 @@ class ApiService {
     return headers;
   }
 
-  // Generic request method
+  // Generic request method - now includes credentials for cookies
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const config = {
       headers: this.getHeaders(),
+      credentials: 'include', // Important: send cookies with requests
       ...options,
     };
 
@@ -96,6 +98,7 @@ class ApiService {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
         method: 'POST',
         headers,
+        credentials: 'include', // Send cookies with file uploads
         body: formData,
       });
 
@@ -119,6 +122,7 @@ class ApiService {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         // Add timeout for warmup scenarios
         signal: AbortSignal.timeout(10000) // 10 second timeout
       });
@@ -202,7 +206,7 @@ class ApiService {
     }
   }
 
-  // Logout
+  // Logout - clears HTTP-only cookie on server
   async logout() {
     const response = await this.post('/auth/logout');
     this.setToken(null);

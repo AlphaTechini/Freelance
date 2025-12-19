@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { initializeAuth } from '$lib/stores/auth.js';
+  import { authStore, initializeAuth } from '$lib/stores/auth.js';
   import { checkWalletConnection } from '$lib/services/wallet.js';
   import { warmupService } from '$lib/services/warmup.js';
   import { theme } from '$lib/stores/theme.js';
@@ -9,8 +9,8 @@
   import WarmupStatus from '$lib/components/WarmupStatus.svelte';
   import '../app.css';
 
-  // Declare children as a snippet prop for Svelte 5
-  let { children } = $props();
+  // Declare children and data as props for Svelte 5
+  let { children, data } = $props();
 
   // Check if current route is an auth page
   let isAuthPage = $derived($page.url.pathname.startsWith('/auth'));
@@ -19,12 +19,23 @@
     // Initialize theme system
     theme.init();
     
+    // If we have server-provided user data, use it for immediate hydration
+    if (data?.user) {
+      authStore.set({
+        user: data.user,
+        walletAddress: data.user.walletAddress || null,
+        isWalletConnected: false,
+        loading: false,
+        error: null
+      });
+    }
+    
     // Start backend warmup immediately (don't wait for it)
     warmupService.warmupBackend().catch(error => {
       console.warn('Backend warmup failed, but app will continue:', error.message);
     });
     
-    // Initialize Firebase Auth
+    // Initialize auth (will verify cookie and update if needed)
     await initializeAuth();
     
     // Check if wallet is already connected

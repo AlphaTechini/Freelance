@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
+import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import dotenv from 'dotenv';
 import { connectDatabase } from './services/database.js';
@@ -54,7 +55,17 @@ async function registerPlugins() {
 
     console.log('🔐 Registering JWT plugin...');
     await fastify.register(jwt, {
-      secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+      secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+      cookie: {
+        cookieName: 'auth_token',
+        signed: false
+      }
+    });
+
+    console.log('🍪 Registering cookie plugin...');
+    await fastify.register(cookie, {
+      secret: process.env.COOKIE_SECRET || process.env.JWT_SECRET || 'cookie-secret-change-in-production',
+      parseOptions: {}
     });
 
     console.log('📎 Registering multipart plugin...');

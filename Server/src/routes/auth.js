@@ -6,6 +6,15 @@ import User from '../models/User.js';
 // Nonce expiration time (5 minutes)
 const NONCE_EXPIRATION = 5 * 60 * 1000;
 
+// Cookie configuration
+const getCookieOptions = (isProduction) => ({
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+  path: '/'
+});
+
 // Generate authentication message
 const generateAuthMessage = (address, nonce) => {
   return `Welcome to MeritStack!\n\nPlease sign this message to authenticate your wallet.\n\nWallet Address: ${address}\nNonce: ${nonce}\n\nThis request will not trigger a blockchain transaction or cost any gas fees.`;
@@ -159,6 +168,11 @@ export default async function authRoutes(fastify, options) {
         expiresIn: '7d'
       });
       
+      // Set HTTP-only cookie
+      const isProduction = process.env.NODE_ENV === 'production';
+      reply.setCookie('auth_token', token, getCookieOptions(isProduction));
+      fastify.log.info(`🍪 Auth cookie set for wallet ${normalizedAddress}`);
+      
       return {
         token,
         user: user ? {
@@ -190,6 +204,10 @@ export default async function authRoutes(fastify, options) {
       { walletAddress, userId, username, role, email },
       { expiresIn: '7d' }
     );
+    
+    // Update cookie with new token
+    const isProduction = process.env.NODE_ENV === 'production';
+    reply.setCookie('auth_token', token, getCookieOptions(isProduction));
     
     return { token };
   });
@@ -380,6 +398,11 @@ export default async function authRoutes(fastify, options) {
         { expiresIn: '7d' }
       );
       
+      // Set HTTP-only cookie with new token
+      const isProduction = process.env.NODE_ENV === 'production';
+      reply.setCookie('auth_token', token, getCookieOptions(isProduction));
+      fastify.log.info(`🍪 Auth cookie set for new user ${user.username}`);
+      
       return {
         success: true,
         user,
@@ -398,11 +421,18 @@ export default async function authRoutes(fastify, options) {
   });
 
 
-  // Logout (client-side token removal, but we can blacklist if needed)
-  fastify.post('/auth/logout', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    // In a production app, you might want to blacklist the token
-    return { message: 'Logged out successfully' };
+  // Logout - clear cookie
+  fastify.post('/auth/logout', async (request, reply) => {
+    // Clear the auth cookie
+    const isProduction = process.env.NODE_ENV === 'production';
+    reply.clearCookie('auth_token', {
+      path: '/',
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax'
+    });
+    fastify.log.info('🍪 Auth cookie cleared');
+    
+    return { success: true, message: 'Logged out successfully' };
   });
 }

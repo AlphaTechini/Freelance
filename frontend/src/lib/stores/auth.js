@@ -17,60 +17,50 @@ export const authStore = writable({
   error: null
 });
 
-// Initialize auth state from localStorage
+// Initialize auth state - now primarily uses cookies (sent automatically)
+// localStorage is kept as fallback for SSR hydration
 export const initializeAuth = async () => {
   try {
-    // Check for stored JWT token
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('auth_user');
-    
-    if (storedToken && storedUser) {
-      // Set token in API service
-      apiService.setToken(storedToken);
-      
-      // Parse and set user data
-      const userData = JSON.parse(storedUser);
-      
-      // Verify token is still valid by fetching profile
-      try {
-        const profileResponse = await apiService.getProfile();
-        if (profileResponse.success && profileResponse.user) {
-          // Token is valid, update with fresh user data
-          localStorage.setItem('auth_user', JSON.stringify(profileResponse.user));
-          authStore.set({
-            user: profileResponse.user,
-            loading: false,
-            error: null
-          });
-        } else {
-          throw new Error('Invalid token');
-        }
-      } catch (verifyError) {
-        // Token is invalid, clear everything
-        console.warn('Stored token is invalid, clearing auth data');
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        apiService.setToken(null);
+    // Try to verify auth via cookie (cookies are sent automatically with credentials: 'include')
+    try {
+      const profileResponse = await apiService.getProfile();
+      if (profileResponse.success && profileResponse.user) {
+        // Cookie auth successful - update store
+        // Also cache user in localStorage for quick hydration
+        localStorage.setItem('auth_user', JSON.stringify(profileResponse.user));
         authStore.set({
-          user: null,
+          user: profileResponse.user,
           loading: false,
           error: null
         });
+        return;
       }
-    } else {
-      // No stored auth data
-      authStore.set({
-        user: null,
-        loading: false,
-        error: null
-      });
+    } catch (verifyError) {
+      // Cookie auth failed - this is normal for logged out users
+      console.log('Cookie auth not available:', verifyError.message);
     }
+    
+    // Fallback: Check localStorage for cached user (for quick UI hydration)
+    const storedUser = localStorage.getItem('auth_user');
+    if (storedUser) {
+      // We have cached user data but cookie auth failed
+      // Clear the stale localStorage data
+      console.warn('Clearing stale localStorage auth data');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+    }
+    
+    // No valid auth
+    authStore.set({
+      user: null,
+      loading: false,
+      error: null
+    });
   } catch (error) {
     console.error('Error initializing auth:', error);
-    // Clear invalid stored data
+    // Clear any stored data
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
-    apiService.setToken(null);
     
     authStore.set({
       user: null,
@@ -81,6 +71,7 @@ export const initializeAuth = async () => {
 };
 
 // Sign up with wallet (wallet-only registration)
+// Cookie is set by backend automatically on successful auth
 export const signUpWithWallet = async (username, email, displayName, role, walletType = WALLET_TYPES.METAMASK) => {
   try {
     authStore.update(store => ({ ...store, loading: true, error: null }));
@@ -103,7 +94,7 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
     // Step 3: Sign authentication message
     const signature = await signAuthMessage(nonce);
 
-    // Step 4: Verify signature and get JWT
+    // Step 4: Verify signature and get JWT (cookie is set automatically by backend)
     const verifyResponse = await withWarmupHandling(
       () => apiService.verifyWalletSignature(address, signature, nonce),
       { retries: 3, retryDelay: 1500 }
@@ -117,9 +108,8 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
 
     const { token, user, isNewUser } = verifyResponse;
 
-    // IMPORTANT: Store token immediately after verification so subsequent API calls work
+    // Keep token in API service as fallback for any edge cases
     if (token) {
-      localStorage.setItem('auth_token', token);
       apiService.setToken(token);
     }
 
@@ -137,12 +127,8 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
         );
 
         if (registrationResponse.success) {
-          // Store auth data with new token from registration
-          localStorage.setItem('auth_token', registrationResponse.token);
+          // Cache user in localStorage for quick hydration
           localStorage.setItem('auth_user', JSON.stringify(registrationResponse.user));
-          
-          // Set token in API service
-          apiService.setToken(registrationResponse.token);
           
           // Update store
           authStore.update(store => ({
@@ -159,8 +145,7 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
           throw new Error(registrationResponse.error?.message || 'Registration failed');
         }
       } catch (regError) {
-        // Clear the temporary token if registration fails
-        localStorage.removeItem('auth_token');
+        // Clear any cached data if registration fails
         localStorage.removeItem('auth_user');
         apiService.setToken(null);
         throw regError;
@@ -169,9 +154,7 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
       // User already exists
       if (user) {
         // They're already registered, just log them in
-        localStorage.setItem('auth_token', token);
         localStorage.setItem('auth_user', JSON.stringify(user));
-        apiService.setToken(token);
         
         authStore.update(store => ({
           ...store,
@@ -194,6 +177,7 @@ export const signUpWithWallet = async (username, email, displayName, role, walle
 };
 
 // Sign in with wallet (wallet-only authentication)
+// Cookie is set by backend automatically on successful auth
 export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
   try {
     authStore.update(store => ({ ...store, loading: true, error: null }));
@@ -218,7 +202,7 @@ export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
     // Step 3: Sign authentication message
     const signature = await signAuthMessage(nonce);
 
-    // Step 4: Verify signature and get JWT
+    // Step 4: Verify signature and get JWT (cookie is set automatically by backend)
     const verifyResponse = await withWarmupHandling(
       () => apiService.verifyWalletSignature(address, signature, nonce),
       { retries: 3, retryDelay: 1500 }
@@ -228,18 +212,18 @@ export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
     
     if (isNewUser || !user) {
       // Clear any stale data
-      localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
       apiService.setToken(null);
       throw new Error('No account found. Please register first.');
     }
 
-    // Store auth data
-    localStorage.setItem('auth_token', token);
+    // Cache user in localStorage for quick hydration
     localStorage.setItem('auth_user', JSON.stringify(user));
     
-    // Set token in API service
-    apiService.setToken(token);
+    // Keep token in API service as fallback
+    if (token) {
+      apiService.setToken(token);
+    }
 
     // Update auth store
     authStore.update(store => ({
@@ -255,8 +239,7 @@ export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
   } catch (error) {
     console.error('Wallet authentication failed:', error);
     
-    // Clear any stored auth data on error
-    localStorage.removeItem('auth_token');
+    // Clear any cached auth data on error
     localStorage.removeItem('auth_user');
     apiService.setToken(null);
     
@@ -270,11 +253,18 @@ export const signInWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
   }
 };
 
-// Sign out
+// Sign out - calls backend to clear cookie
 export const signOutUser = async () => {
   try {
-    // Clear stored auth data
-    localStorage.removeItem('auth_token');
+    // Call backend to clear the HTTP-only cookie
+    try {
+      await apiService.logout();
+    } catch (logoutError) {
+      // Even if backend call fails, clear local state
+      console.warn('Backend logout failed:', logoutError.message);
+    }
+    
+    // Clear cached auth data
     localStorage.removeItem('auth_user');
     
     // Clear token from API service
@@ -294,14 +284,22 @@ export const signOutUser = async () => {
   }
 };
 
-// Get current user's JWT token
+// Get current user's JWT token (now primarily from cookie, this is for backward compat)
 export const getCurrentUserToken = async () => {
-  return localStorage.getItem('auth_token');
+  // Token is now in HTTP-only cookie, can't access directly
+  // Return null - API calls will use cookie automatically
+  return null;
 };
 
 // Clear all auth data (helper function)
-export const clearAuthData = () => {
-  localStorage.removeItem('auth_token');
+export const clearAuthData = async () => {
+  // Call backend to clear cookie
+  try {
+    await apiService.logout();
+  } catch (error) {
+    console.warn('Could not clear server cookie:', error.message);
+  }
+  
   localStorage.removeItem('auth_user');
   apiService.setToken(null);
   authStore.set({
@@ -316,6 +314,7 @@ export const clearAuthData = () => {
 // ===== Wallet Authentication Methods =====
 
 // Authenticate with wallet (MetaMask or WalletConnect)
+// Cookie is set by backend automatically on successful auth
 export const authenticateWithWallet = async (walletType = WALLET_TYPES.METAMASK) => {
   try {
     authStore.update(store => ({ ...store, loading: true, error: null }));
@@ -332,23 +331,19 @@ export const authenticateWithWallet = async (walletType = WALLET_TYPES.METAMASK)
     // Step 3: Sign authentication message
     const signature = await signAuthMessage(nonce);
 
-    // Step 4: Get JWT token if user is logged in
-    const jwtToken = await getCurrentUserToken();
-
-    // Step 5: Verify signature and get JWT
+    // Step 4: Verify signature and get JWT (cookie is set automatically by backend)
     const { token, user } = await withWarmupHandling(
-      () => apiService.verifyWalletSignature(address, signature, nonce, jwtToken),
+      () => apiService.verifyWalletSignature(address, signature, nonce),
       { retries: 3, retryDelay: 1500 }
     );
     
-    // Store auth data if successful
+    // Cache user data if successful
+    if (user) {
+      localStorage.setItem('auth_user', JSON.stringify(user));
+    }
+    
+    // Keep token in API service as fallback
     if (token) {
-      localStorage.setItem('auth_token', token);
-      if (user) {
-        localStorage.setItem('auth_user', JSON.stringify(user));
-      }
-      
-      // Set token in API service
       apiService.setToken(token);
     }
 
