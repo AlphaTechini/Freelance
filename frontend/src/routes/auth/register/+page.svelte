@@ -13,6 +13,7 @@
   let email = $state('');
   let role = $state('');
   let loading = $state(false);
+  let loadingMessage = $state('');
   let error = $state('');
   let agreedToTerms = $state(false);
   let usernameAvailable = $state(null);
@@ -129,11 +130,13 @@
       error = '';
       
       // Step 1: Connect wallet (this will prompt MetaMask)
+      loadingMessage = 'Connecting to MetaMask...';
       const { address, chainId } = await connectWallet(WALLET_TYPES.METAMASK);
       
       // Step 2: Switch to BNB Testnet if needed
       if (chainId !== BNB_TESTNET_CHAIN_ID) {
         try {
+          loadingMessage = 'Switching to BNB Testnet...';
           await switchNetwork(BNB_TESTNET_CHAIN_ID);
         } catch (switchErr) {
           console.warn('Could not auto-switch network:', switchErr.message);
@@ -141,15 +144,21 @@
       }
       
       // Step 3: Register with wallet
+      loadingMessage = 'Creating your account...';
       await signUpWithWallet(username, email, username, role, WALLET_TYPES.METAMASK);
       
-      // Small delay to ensure token is fully stored before redirect
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Success!
+      loadingMessage = 'Success! Redirecting...';
+      
+      // Small delay to show success message
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Redirect to profile edit
       goto('/profile/edit');
     } catch (err) {
       console.error('Registration error:', err);
+      loadingMessage = '';
+      
       if (err.message?.includes('already exists') || err.message?.includes('already registered')) {
         if (err.message?.includes('Redirecting to dashboard')) {
           // User is already registered and logged in, redirect them
@@ -172,6 +181,7 @@
       }
     } finally {
       loading = false;
+      loadingMessage = '';
     }
   }
 
@@ -212,7 +222,18 @@
     </div>
 
     <!-- Register Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 relative">
+      <!-- Loading Overlay -->
+      {#if loading}
+        <div class="absolute inset-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
+          <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mb-4"></div>
+            <p class="text-lg font-medium text-gray-900 dark:text-white">{loadingMessage}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Please check your wallet...</p>
+          </div>
+        </div>
+      {/if}
+
       {#if error}
         <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p class="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -400,7 +421,7 @@
               loading={loading}
               disabled={loading || !role}
             >
-              {loading ? 'Connecting...' : 'Create Account'}
+              {loading ? (loadingMessage || 'Processing...') : 'Create Account'}
             </Button>
           </div>
         </div>

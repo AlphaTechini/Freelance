@@ -6,6 +6,7 @@
   import WalletConnect from '$lib/components/WalletConnect.svelte';
 
   let loading = $state(false);
+  let loadingMessage = $state('');
   let error = $state('');
 
   async function handleWalletLogin() {
@@ -18,7 +19,11 @@
       loading = true;
       error = '';
       
+      loadingMessage = 'Requesting signature...';
       await signInWithWallet(WALLET_TYPES.METAMASK);
+      
+      loadingMessage = 'Success! Redirecting...';
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Redirect to dashboard after successful login
       goto('/dashboard');
@@ -27,6 +32,7 @@
       error = err.message || 'Failed to authenticate with wallet';
     } finally {
       loading = false;
+      loadingMessage = '';
     }
   }
 </script>
@@ -45,7 +51,18 @@
     </div>
 
     <!-- Login Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 relative">
+      <!-- Loading Overlay -->
+      {#if loading}
+        <div class="absolute inset-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
+          <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mb-4"></div>
+            <p class="text-lg font-medium text-gray-900 dark:text-white">{loadingMessage}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Please check your wallet...</p>
+          </div>
+        </div>
+      {/if}
+
       {#if error}
         <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p class="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -85,7 +102,7 @@
               disabled={loading}
               class="w-full"
             >
-              {loading ? 'Authenticating...' : 'Sign In with Wallet'}
+              {loading ? (loadingMessage || 'Authenticating...') : 'Sign In with Wallet'}
             </Button>
           </form>
         {/if}
