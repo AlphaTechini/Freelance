@@ -108,10 +108,10 @@
           {candidate}
           user={$authStore.user}
           loading={analysisLoading}
-          on:reanalyze={handleReanalyze}
-          on:editProfile={handleEditProfile}
-          on:viewEarnings={handleViewEarnings}
-          on:viewPayments={handleViewPayments}
+          onreanalyze={handleReanalyze}
+          oneditprofile={handleEditProfile}
+          onviewearnings={handleViewEarnings}
+          onviewpayments={handleViewPayments}
         />
       {/if}
     </div>

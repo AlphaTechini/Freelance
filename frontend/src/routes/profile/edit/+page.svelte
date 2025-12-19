@@ -18,12 +18,43 @@
     bio: '',
     skills: [],
     profileImage: '',
+    // Candidate-specific fields
+    githubUrl: '',
+    portfolioUrl: '',
+    university: '',
+    major: '',
+    educationLevel: '',
+    yearsOfExperience: 0,
+    availability: '',
+    isPublished: false,
     preferences: {
       preferredTokens: [],
       notifications: true,
       emailNotifications: true
     }
   });
+  
+  // Education level options
+  const educationLevels = [
+    { value: 'student', label: 'Student' },
+    { value: 'graduate', label: 'Graduate' },
+    { value: 'phd', label: 'PhD Candidate' }
+  ];
+  
+  // Availability options
+  const availabilityOptions = [
+    { value: 'Full-time', label: 'Full-time' },
+    { value: 'Part-time', label: 'Part-time' },
+    { value: 'Contract', label: 'Contract' },
+    { value: '6 Months', label: '6 Months' },
+    { value: '3 Months', label: '3 Months' }
+  ];
+  
+  // Suggested skills for quick add
+  const suggestedSkills = ['Python', 'React', 'Java', 'C++', 'Go', 'Rust', 'SQL', 'Kubernetes'];
+  
+  // Check if user is a candidate (not recruiter)
+  let isCandidate = $derived($authStore.user?.role !== 'recruiter');
   
   let newSkill = $state('');
   let imageFile = $state(null);
@@ -32,9 +63,7 @@
   const availableTokens = ['USDT', 'ETH', 'BTC'];
   
   onMount(async () => {
-    // Wait for auth store to finish loading before checking
     if ($authStore.loading) {
-      // Wait for auth to initialize
       const unsubscribe = authStore.subscribe(store => {
         if (!store.loading) {
           unsubscribe();
@@ -47,33 +76,36 @@
   });
   
   async function checkAuthAndLoad() {
-    // Check if user is authenticated
     if (!$authStore.user && !$authStore.isWalletConnected) {
       goto('/auth/login');
       return;
     }
-    
     await loadProfile();
   }
-  
+
   async function loadProfile() {
     try {
       loading = true;
       error = '';
       
-      // Get user info first to determine role
-      // Cookie is sent automatically with credentials: 'include'
       const userResponse = await apiService.getProfile();
       
       if (userResponse.success && userResponse.user) {
         const user = userResponse.user;
         
-        // Load basic user profile
         profile = {
           displayName: user.displayName || '',
           bio: user.bio || '',
           skills: user.skills || [],
           profileImage: user.profileImage || '',
+          githubUrl: '',
+          portfolioUrl: '',
+          university: '',
+          major: '',
+          educationLevel: '',
+          yearsOfExperience: 0,
+          availability: '',
+          isPublished: false,
           preferences: {
             preferredTokens: user.preferences?.preferredTokens || [],
             notifications: user.preferences?.notifications ?? true,
@@ -82,12 +114,11 @@
         };
         imagePreview = profile.profileImage;
         
-        // Try to load role-specific profile
+        // Load role-specific profile
         try {
           if (user.role === 'recruiter') {
             const recruiterResponse = await apiService.getRecruiterProfile();
             if (recruiterResponse.success && recruiterResponse.profile) {
-              // Merge recruiter-specific data
               profile = {
                 ...profile,
                 company: recruiterResponse.profile.company || '',
@@ -99,7 +130,6 @@
           } else {
             const candidateResponse = await apiService.getCandidateProfile();
             if (candidateResponse.success && candidateResponse.profile) {
-              // Merge candidate-specific data
               profile = {
                 ...profile,
                 major: candidateResponse.profile.major || '',
@@ -118,16 +148,12 @@
             }
           }
         } catch (roleError) {
-          // Role-specific profile doesn't exist yet, that's okay
           console.log('No role-specific profile found:', roleError.message);
         }
       }
     } catch (err) {
       error = 'Failed to load profile: ' + err.message;
-      
-      // If unauthorized, redirect to login
-      if (err.message?.includes('Unauthorized') || err.message?.includes('No Authorization') || err.message?.includes('401')) {
-        console.error('Auth error, redirecting to login');
+      if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
         localStorage.removeItem('auth_user');
         goto('/auth/login');
       }
@@ -143,34 +169,23 @@
         error = 'Image size must be less than 5MB';
         return;
       }
-      
       if (!file.type.startsWith('image/')) {
         error = 'Please select an image file';
         return;
       }
-      
       imageFile = file;
-      
-      // Create preview
       const reader = new FileReader();
-      reader.onload = (e) => {
-        imagePreview = e.target?.result;
-      };
+      reader.onload = (e) => { imagePreview = e.target?.result; };
       reader.readAsDataURL(file);
     }
   }
   
   async function uploadImage() {
     if (!imageFile) return profile.profileImage;
-    
     try {
       uploadingImage = true;
       const response = await apiService.uploadFile('/users/upload-image', imageFile);
-      
-      if (response.success && response.imageUrl) {
-        return response.imageUrl;
-      }
-      
+      if (response.success && response.imageUrl) return response.imageUrl;
       throw new Error('Failed to upload image');
     } catch (err) {
       throw new Error('Image upload failed: ' + err.message);
@@ -179,15 +194,15 @@
     }
   }
   
-  function addSkill() {
-    const skill = newSkill.trim();
+  function addSkill(skillToAdd = null) {
+    const skill = (skillToAdd || newSkill).trim();
     if (skill && !profile.skills.includes(skill)) {
       if (profile.skills.length >= 20) {
         error = 'Maximum 20 skills allowed';
         return;
       }
       profile.skills = [...profile.skills, skill];
-      newSkill = '';
+      if (!skillToAdd) newSkill = '';
     }
   }
   
@@ -204,6 +219,11 @@
     }
   }
   
+  function isValidUrl(string) {
+    if (!string) return true;
+    try { new URL(string); return true; } catch (_) { return false; }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     
@@ -212,7 +232,6 @@
       error = '';
       success = '';
       
-      // Validate
       if (!profile.displayName || profile.displayName.trim().length < 2) {
         error = 'Display name must be at least 2 characters';
         return;
@@ -223,13 +242,22 @@
         return;
       }
       
-      // Upload image if selected
+      // Validate URLs
+      if (profile.githubUrl && !isValidUrl(profile.githubUrl)) {
+        error = 'Please enter a valid GitHub URL';
+        return;
+      }
+      if (profile.portfolioUrl && !isValidUrl(profile.portfolioUrl)) {
+        error = 'Please enter a valid Portfolio URL';
+        return;
+      }
+      
       let imageUrl = profile.profileImage;
       if (imageFile) {
         imageUrl = await uploadImage();
       }
       
-      // Update profile
+      // Update basic profile
       const updateData = {
         displayName: profile.displayName.trim(),
         bio: profile.bio.trim(),
@@ -238,15 +266,37 @@
         preferences: profile.preferences
       };
       
-      const response = await apiService.put('/users/profile', updateData);
+      await apiService.put('/users/profile', updateData);
       
-      if (response.success) {
-        success = 'Profile updated successfully!';
-        setTimeout(() => {
-          // Redirect to dashboard after saving profile
-          goto('/dashboard');
-        }, 1500);
+      // Update candidate-specific profile if not recruiter
+      if (isCandidate) {
+        const candidateData = {
+          bio: profile.bio.trim(),
+          skills: profile.skills,
+          major: profile.major || '',
+          university: profile.university || '',
+          educationLevel: profile.educationLevel || '',
+          yearsOfExperience: parseInt(profile.yearsOfExperience) || 0,
+          portfolioUrl: profile.portfolioUrl || '',
+          githubUrl: profile.githubUrl || '',
+          availability: profile.availability || '',
+          isPublished: profile.isPublished
+        };
+        
+        try {
+          await apiService.put('/users/candidate-profile', candidateData);
+        } catch (err) {
+          // If profile doesn't exist, create it
+          if (err.message?.includes('not found') || err.message?.includes('404')) {
+            await apiService.post('/users/candidate-profile', candidateData);
+          } else {
+            throw err;
+          }
+        }
       }
+      
+      success = 'Profile updated successfully!';
+      setTimeout(() => goto('/dashboard'), 1500);
     } catch (err) {
       error = 'Failed to update profile: ' + err.message;
     } finally {
@@ -255,7 +305,7 @@
   }
   
   function handleCancel() {
-    goto('/profile');
+    goto('/dashboard');
   }
 </script>
 
@@ -266,8 +316,12 @@
 <div class="container mx-auto px-4 py-8">
   <div class="max-w-3xl mx-auto">
     <div class="flex items-center justify-between mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Edit Profile</h1>
-      <Button variant="ghost" size="sm" onclick={handleCancel}>Cancel</Button>
+      <div>
+        <button onclick={handleCancel} class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2 flex items-center gap-1 text-sm">
+          ← Back
+        </button>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Edit Profile</h1>
+      </div>
     </div>
 
     {#if loading}
@@ -276,7 +330,6 @@
       </div>
     {:else}
       <form onsubmit={handleSubmit} class="space-y-6">
-        <!-- Error/Success Messages -->
         {#if error}
           <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg">
             {error}
@@ -292,40 +345,29 @@
         <!-- Profile Image -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
           <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Profile Image</h2>
-          
           <div class="flex items-center space-x-6">
             <div class="relative">
               {#if imagePreview}
                 <img src={imagePreview} alt="Profile" class="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700" />
               {:else}
-                <div class="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                  <span class="text-3xl text-gray-400">👤</span>
+                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                  {profile.displayName?.charAt(0)?.toUpperCase() || '?'}
                 </div>
               {/if}
-              
               {#if uploadingImage}
                 <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
                   <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
                 </div>
               {/if}
             </div>
-            
             <div class="flex-1">
-              <input
-                type="file"
-                accept="image/*"
-                onchange={handleImageSelect}
-                class="hidden"
-                id="profile-image-input"
-              />
+              <input type="file" accept="image/*" onchange={handleImageSelect} class="hidden" id="profile-image-input" />
               <label for="profile-image-input">
                 <Button type="button" variant="secondary" size="sm" onclick={() => document.getElementById('profile-image-input').click()}>
                   Choose Image
                 </Button>
               </label>
-              <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                JPG, PNG or GIF. Max size 5MB.
-              </p>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">JPG, PNG or GIF. Max size 5MB.</p>
             </div>
           </div>
         </div>
@@ -333,140 +375,191 @@
         <!-- Basic Information -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
           <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Basic Information</h2>
-          
           <div class="space-y-4">
             <div>
-              <label for="displayName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Display Name *
-              </label>
-              <Input
-                id="displayName"
-                type="text"
-                bind:value={profile.displayName}
-                placeholder="Enter your display name"
-                required
-                minlength={2}
-                maxlength={50}
-              />
+              <label for="displayName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name *</label>
+              <Input id="displayName" type="text" bind:value={profile.displayName} placeholder="Enter your full name" required minlength={2} maxlength={50} />
             </div>
             
-            <div>
-              <label for="bio" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Bio
-              </label>
-              <textarea
-                id="bio"
-                bind:value={profile.bio}
-                placeholder="Tell us about yourself..."
-                maxlength={500}
-                rows="4"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              ></textarea>
-              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {profile.bio.length}/500 characters
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Skills -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Skills</h2>
-          
-          <div class="space-y-4">
-            <div class="flex gap-2">
-              <Input
-                type="text"
-                bind:value={newSkill}
-                placeholder="Add a skill"
-                maxlength={30}
-                onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-              />
-              <Button type="button" variant="secondary" onclick={addSkill}>Add</Button>
-            </div>
-            
-            {#if profile.skills.length > 0}
-              <div class="flex flex-wrap gap-2">
-                {#each profile.skills as skill}
-                  <span class="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 rounded-full text-sm">
-                    {skill}
-                    <button
-                      type="button"
-                      onclick={() => removeSkill(skill)}
-                      class="hover:text-orange-600 dark:hover:text-orange-400"
-                    >
-                      ×
-                    </button>
-                  </span>
-                {/each}
+            {#if isCandidate}
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label for="university" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">University</label>
+                  <Input id="university" type="text" bind:value={profile.university} placeholder="Your university" />
+                </div>
+                <div>
+                  <label for="major" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Program / Major</label>
+                  <Input id="major" type="text" bind:value={profile.major} placeholder="Computer Science, Engineering, etc." />
+                </div>
               </div>
-            {:else}
-              <p class="text-sm text-gray-500 dark:text-gray-400">No skills added yet</p>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label for="educationLevel" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Education Level</label>
+                  <select id="educationLevel" bind:value={profile.educationLevel} class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="">Select level</option>
+                    {#each educationLevels as level}
+                      <option value={level.value}>{level.label}</option>
+                    {/each}
+                  </select>
+                </div>
+                <div>
+                  <label for="yearsOfExperience" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Years of Experience</label>
+                  <Input id="yearsOfExperience" type="number" bind:value={profile.yearsOfExperience} min="0" max="50" placeholder="0" />
+                </div>
+              </div>
             {/if}
           </div>
         </div>
 
+        <!-- GitHub & Portfolio URLs (Candidate only) -->
+        {#if isCandidate}
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Links</h2>
+            <div class="space-y-4">
+              <div>
+                <label for="githubUrl" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clip-rule="evenodd" />
+                    </svg>
+                    GitHub Profile
+                  </span>
+                </label>
+                <Input id="githubUrl" type="url" bind:value={profile.githubUrl} placeholder="https://github.com/yourusername" />
+              </div>
+              
+              <div>
+                <label for="portfolioUrl" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5z" clip-rule="evenodd" />
+                      <path fill-rule="evenodd" d="M6.194 12.753a.75.75 0 001.06.053L16.5 4.44v2.81a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.553l-9.056 8.194a.75.75 0 00-.053 1.06z" clip-rule="evenodd" />
+                    </svg>
+                    Portfolio Website
+                  </span>
+                </label>
+                <Input id="portfolioUrl" type="url" bind:value={profile.portfolioUrl} placeholder="https://yourportfolio.com" />
+              </div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Skills & Technologies -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Skills & Technologies</h2>
+          <div class="space-y-4">
+            {#if profile.skills.length > 0}
+              <div class="flex flex-wrap gap-2">
+                {#each profile.skills as skill}
+                  <span class="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full text-sm">
+                    {skill}
+                    <button type="button" onclick={() => removeSkill(skill)} class="hover:text-purple-600 dark:hover:text-purple-400 ml-1">×</button>
+                  </span>
+                {/each}
+              </div>
+            {/if}
+            
+            <div class="flex gap-2">
+              <div class="flex-1">
+                <Input type="text" bind:value={newSkill} placeholder="Add a skill..." maxlength={30} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())} />
+              </div>
+              <Button type="button" variant="secondary" onclick={() => addSkill()}>
+                <span class="flex items-center gap-1">+ Add</span>
+              </Button>
+            </div>
+            
+            <!-- Suggested skills -->
+            <div class="flex flex-wrap gap-2">
+              {#each suggestedSkills.filter(s => !profile.skills.includes(s)) as skill}
+                <button type="button" onclick={() => addSkill(skill)} class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors">
+                  + {skill}
+                </button>
+              {/each}
+            </div>
+          </div>
+        </div>
+
+        <!-- Bio / Experience Summary -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Bio / Experience Summary</h2>
+          <textarea
+            id="bio"
+            bind:value={profile.bio}
+            placeholder="Tell us about yourself, your experience, and what you're looking for..."
+            maxlength={500}
+            rows="4"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+          ></textarea>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{profile.bio.length}/500 characters</p>
+        </div>
+
+        <!-- Availability (Candidate only) -->
+        {#if isCandidate}
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Availability</h2>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {#each availabilityOptions as option}
+                <button
+                  type="button"
+                  onclick={() => profile.availability = option.value}
+                  class="px-4 py-3 rounded-lg border-2 transition-all text-center {
+                    profile.availability === option.value
+                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-700 text-gray-700 dark:text-gray-300'
+                  }"
+                >
+                  {option.label}
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Profile Visibility -->
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Profile Visibility</h2>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" bind:checked={profile.isPublished} class="w-5 h-5 text-purple-500 border-gray-300 rounded focus:ring-purple-500" />
+              <div>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Make my profile visible to recruiters</span>
+                <p class="text-xs text-gray-500 dark:text-gray-400">When enabled, recruiters can find and contact you for opportunities</p>
+              </div>
+            </label>
+          </div>
+        {/if}
+
         <!-- Preferences -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
           <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Preferences</h2>
-          
           <div class="space-y-6">
-            <!-- Preferred Tokens -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Preferred Payment Tokens
-              </label>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Preferred Payment Tokens</label>
               <div class="flex gap-3">
                 {#each availableTokens as token}
-                  <button
-                    type="button"
-                    onclick={() => toggleToken(token)}
-                    class="px-4 py-2 rounded-lg border-2 transition-colors {
-                      profile.preferences.preferredTokens.includes(token)
-                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
-                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                    }"
-                  >
+                  <button type="button" onclick={() => toggleToken(token)} class="px-4 py-2 rounded-lg border-2 transition-colors {profile.preferences.preferredTokens.includes(token) ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}">
                     {token}
                   </button>
                 {/each}
               </div>
             </div>
-            
-            <!-- Notification Settings -->
             <div class="space-y-3">
               <label class="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  bind:checked={profile.preferences.notifications}
-                  class="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
-                />
-                <span class="text-sm text-gray-700 dark:text-gray-300">
-                  Enable in-app notifications
-                </span>
+                <input type="checkbox" bind:checked={profile.preferences.notifications} class="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500" />
+                <span class="text-sm text-gray-700 dark:text-gray-300">Enable in-app notifications</span>
               </label>
-              
               <label class="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  bind:checked={profile.preferences.emailNotifications}
-                  class="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
-                />
-                <span class="text-sm text-gray-700 dark:text-gray-300">
-                  Enable email notifications
-                </span>
+                <input type="checkbox" bind:checked={profile.preferences.emailNotifications} class="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500" />
+                <span class="text-sm text-gray-700 dark:text-gray-300">Enable email notifications</span>
               </label>
             </div>
           </div>
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex gap-4 justify-end">
-          <Button type="button" variant="ghost" onclick={handleCancel}>
-            Cancel
-          </Button>
+        <div class="flex gap-4 justify-between">
+          <Button type="button" variant="ghost" onclick={handleCancel}>Cancel</Button>
           <Button type="submit" variant="primary" disabled={saving || uploadingImage}>
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? 'Saving...' : 'Continue →'}
           </Button>
         </div>
       </form>
