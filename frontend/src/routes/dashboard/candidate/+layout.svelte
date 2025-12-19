@@ -6,6 +6,9 @@
   import { apiService } from '$lib/services/api.js';
   import ProfileSidebar from '$lib/components/ProfileSidebar.svelte';
   
+  // Declare children as a snippet prop for Svelte 5
+  let { children } = $props();
+  
   let loading = $state(true);
   let error = $state('');
   let candidate = $state(null);

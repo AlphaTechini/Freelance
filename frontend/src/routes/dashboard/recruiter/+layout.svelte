@@ -5,6 +5,9 @@
   import { authStore } from '$lib/stores/auth.js';
   import { apiService } from '$lib/services/api.js';
   
+  // Declare children as a snippet prop for Svelte 5
+  let { children } = $props();
+  
   let loading = $state(true);
   let error = $state('');
   let recruiter = $state(null);
