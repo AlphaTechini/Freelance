@@ -31,8 +31,10 @@
       }
       
       // Load candidate profile
-      const candidateResponse = await apiService.getCandidateProfile($authStore.user.username);
-      if (candidateResponse.success && candidateResponse.candidate) {
+      const candidateResponse = await apiService.getCandidateProfile();
+      if (candidateResponse.success && candidateResponse.profile) {
+        candidate = candidateResponse.profile;
+      } else if (candidateResponse.success && candidateResponse.candidate) {
         candidate = candidateResponse.candidate;
       }
       
@@ -48,9 +50,10 @@
   
   async function loadPortfolioAnalysis() {
     try {
-      if (!candidate?.username) return;
+      const username = candidate?.username || $authStore.user?.username;
+      if (!username) return;
       
-      const analysisResponse = await apiService.getPortfolioAnalysis(candidate.username);
+      const analysisResponse = await apiService.getPortfolioAnalysis(username);
       if (analysisResponse.success && analysisResponse.analysis) {
         portfolioAnalysis = analysisResponse.analysis;
       }
@@ -62,8 +65,9 @@
   async function handleReanalyze() {
     try {
       analysisLoading = true;
+      const username = candidate?.username || $authStore.user?.username;
       
-      const response = await apiService.analyzePortfolio(candidate.username);
+      const response = await apiService.analyzePortfolio(username);
       if (response.success && response.analysis) {
         portfolioAnalysis = response.analysis;
       }

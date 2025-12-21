@@ -5,7 +5,6 @@
   import { authStore } from '$lib/stores/auth.js';
   import { apiService } from '$lib/services/api.js';
   import { withWarmupHandling } from '$lib/utils/api-wrapper.js';
-  import Navbar from '$lib/components/Navbar.svelte';
   
   // Declare children as a snippet prop for Svelte 5
   let { children } = $props();
@@ -56,9 +55,8 @@
   <title>Dashboard - MeritStack</title>
 </svelte:head>
 
+<!-- Navbar is already rendered by parent +layout.svelte -->
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
-  <Navbar />
-  
   {#if loading}
     <div class="flex justify-center items-center py-12">
       <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>

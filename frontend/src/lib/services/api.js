@@ -542,8 +542,8 @@ class ApiService {
     return this.get(`/candidates/search?${params.toString()}`);
   }
 
-  // Get candidate profile by ID
-  async getCandidateProfile(candidateId) {
+  // Get candidate profile by ID (for recruiters viewing candidates)
+  async getCandidateById(candidateId) {
     return this.get(`/candidates/${candidateId}`);
   }
 }
