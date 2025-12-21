@@ -17,7 +17,7 @@
   
   async function loadDashboardData() {
     try {
-      const earningsResponse = await apiService.getEarnings($authStore.user.username);
+      const earningsResponse = await apiService.getEarnings();
       if (earningsResponse.success && earningsResponse.earnings) {
         earnings = earningsResponse.earnings;
       }

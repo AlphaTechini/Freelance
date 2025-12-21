@@ -513,6 +513,11 @@ class ApiService {
     return this.get('/payments/earnings');
   }
 
+  // Alias for backward compatibility
+  async getEarnings() {
+    return this.get('/payments/earnings');
+  }
+
   // Get payment statistics
   async getPaymentStats() {
     return this.get('/payments/stats');

@@ -140,6 +140,7 @@ async function portfolioRoutes(fastify, options) {
   /**
    * GET /api/portfolio/analysis/:candidateId
    * Get latest analysis results (Requirement 2.5)
+   * Accepts candidateId (MongoDB ObjectId), username, or userId
    */
   fastify.get('/portfolio/analysis/:candidateId', {
     schema: {
@@ -160,7 +161,19 @@ async function portfolioRoutes(fastify, options) {
     try {
       const { candidateId } = request.params;
 
-      const analysis = await portfolioAnalyzer.getLatestAnalysis(candidateId);
+      // Try to find candidate by various identifiers
+      const candidate = await CandidateProfile.findOne({
+        $or: [
+          { _id: candidateId },
+          { userId: candidateId },
+          { username: candidateId }
+        ]
+      });
+
+      // Use the found candidate's _id or the original candidateId
+      const lookupId = candidate ? candidate._id.toString() : candidateId;
+
+      const analysis = await portfolioAnalyzer.getLatestAnalysis(lookupId);
 
       if (!analysis) {
         return reply.status(404).send({
@@ -196,6 +209,7 @@ async function portfolioRoutes(fastify, options) {
   /**
    * GET /api/portfolio/suggestions/:candidateId
    * Get improvement suggestions (Requirement 2.4)
+   * Accepts candidateId (MongoDB ObjectId), username, or userId
    */
   fastify.get('/portfolio/suggestions/:candidateId', {
     schema: {
@@ -212,7 +226,19 @@ async function portfolioRoutes(fastify, options) {
     try {
       const { candidateId } = request.params;
 
-      const analysis = await portfolioAnalyzer.getLatestAnalysis(candidateId);
+      // Try to find candidate by various identifiers
+      const candidate = await CandidateProfile.findOne({
+        $or: [
+          { _id: candidateId },
+          { userId: candidateId },
+          { username: candidateId }
+        ]
+      });
+
+      // Use the found candidate's _id or the original candidateId
+      const lookupId = candidate ? candidate._id.toString() : candidateId;
+
+      const analysis = await portfolioAnalyzer.getLatestAnalysis(lookupId);
 
       if (!analysis || !analysis.improvements) {
         return reply.status(404).send({
@@ -224,7 +250,7 @@ async function portfolioRoutes(fastify, options) {
       reply.send({
         success: true,
         data: {
-          candidateId,
+          candidateId: lookupId,
           improvements: analysis.improvements,
           analyzedAt: analysis.analyzedAt
         }
@@ -242,6 +268,7 @@ async function portfolioRoutes(fastify, options) {
   /**
    * GET /api/portfolio/history/:candidateId
    * Get analysis history for candidate
+   * Accepts candidateId (MongoDB ObjectId), username, or userId
    */
   fastify.get('/portfolio/history/:candidateId', {
     schema: {
@@ -258,12 +285,24 @@ async function portfolioRoutes(fastify, options) {
     try {
       const { candidateId } = request.params;
 
-      const analyses = await portfolioAnalyzer.getAllAnalyses(candidateId);
+      // Try to find candidate by various identifiers
+      const candidate = await CandidateProfile.findOne({
+        $or: [
+          { _id: candidateId },
+          { userId: candidateId },
+          { username: candidateId }
+        ]
+      });
+
+      // Use the found candidate's _id or the original candidateId
+      const lookupId = candidate ? candidate._id.toString() : candidateId;
+
+      const analyses = await portfolioAnalyzer.getAllAnalyses(lookupId);
 
       reply.send({
         success: true,
         data: {
-          candidateId,
+          candidateId: lookupId,
           analyses: analyses.map(analysis => ({
             analysisId: analysis._id,
             status: analysis.status,
@@ -286,6 +325,7 @@ async function portfolioRoutes(fastify, options) {
   /**
    * GET /api/portfolio/status/:candidateId
    * Check analysis status
+   * Accepts candidateId (MongoDB ObjectId), username, or userId
    */
   fastify.get('/portfolio/status/:candidateId', {
     schema: {
@@ -302,13 +342,25 @@ async function portfolioRoutes(fastify, options) {
     try {
       const { candidateId } = request.params;
 
-      const inProgress = portfolioAnalyzer.isAnalysisInProgress(candidateId);
-      const latestAnalysis = await portfolioAnalyzer.getLatestAnalysis(candidateId);
+      // Try to find candidate by various identifiers
+      const candidate = await CandidateProfile.findOne({
+        $or: [
+          { _id: candidateId },
+          { userId: candidateId },
+          { username: candidateId }
+        ]
+      });
+
+      // Use the found candidate's _id or the original candidateId
+      const lookupId = candidate ? candidate._id.toString() : candidateId;
+
+      const inProgress = portfolioAnalyzer.isAnalysisInProgress(lookupId);
+      const latestAnalysis = await portfolioAnalyzer.getLatestAnalysis(lookupId);
 
       reply.send({
         success: true,
         data: {
-          candidateId,
+          candidateId: lookupId,
           inProgress,
           latestStatus: latestAnalysis ? latestAnalysis.status : null,
           lastAnalyzed: latestAnalysis ? latestAnalysis.analyzedAt : null

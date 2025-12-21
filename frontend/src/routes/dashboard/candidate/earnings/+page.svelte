@@ -19,7 +19,7 @@
       loading = true;
       error = '';
       
-      const response = await apiService.getEarnings($authStore.user.username);
+      const response = await apiService.getEarnings();
       if (response.success && response.earnings) {
         earnings = response.earnings;
       }
