@@ -51,8 +51,8 @@ const candidateProfileSchema = new mongoose.Schema({
   
   educationLevel: {
     type: String,
-    required: true,
-    enum: ['student', 'graduate', 'phd'],
+    enum: ['student', 'graduate', 'phd', ''],
+    default: '',
     index: true
   },
   

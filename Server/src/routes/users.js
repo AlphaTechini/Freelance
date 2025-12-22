@@ -394,14 +394,13 @@ export default async function userRoutes(fastify, options) {
       security: [{ bearerAuth: [] }],
       body: {
         type: 'object',
-        required: ['educationLevel'],
         properties: {
           bio: { type: 'string', maxLength: 1000 },
           major: { type: 'string' },
           fieldOfStudy: { type: 'string' },
           educationLevel: { 
             type: 'string', 
-            enum: ['student', 'graduate', 'phd'] 
+            enum: ['student', 'graduate', 'phd', ''] 
           },
           university: { type: 'string' },
           skills: { 
@@ -477,6 +476,7 @@ export default async function userRoutes(fastify, options) {
           profile
         });
       } catch (error) {
+        console.error('Candidate profile creation error:', error);
         return reply.code(400).send({
           success: false,
           error: {
@@ -628,7 +628,7 @@ export default async function userRoutes(fastify, options) {
           fieldOfStudy: { type: 'string' },
           educationLevel: { 
             type: 'string', 
-            enum: ['student', 'graduate', 'phd'] 
+            enum: ['student', 'graduate', 'phd', ''] 
           },
           university: { type: 'string' },
           skills: { 
@@ -675,9 +675,17 @@ export default async function userRoutes(fastify, options) {
         // Import CandidateProfile model
         const CandidateProfile = (await import('../models/CandidateProfile.js')).default;
         
+        // Prepare update data - remove empty strings for optional fields
+        const updateData = { ...request.body };
+        
+        // Don't update educationLevel if it's empty (keep existing value)
+        if (updateData.educationLevel === '') {
+          delete updateData.educationLevel;
+        }
+        
         const profile = await CandidateProfile.findOneAndUpdate(
           { userId },
-          { $set: request.body },
+          { $set: updateData },
           { new: true, runValidators: true }
         ).populate('userId', 'displayName email profileImage rating');
         
@@ -696,6 +704,7 @@ export default async function userRoutes(fastify, options) {
           profile
         });
       } catch (error) {
+        console.error('Candidate profile update error:', error);
         return reply.code(400).send({
           success: false,
           error: {

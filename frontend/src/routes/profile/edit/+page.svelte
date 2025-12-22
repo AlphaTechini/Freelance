@@ -88,11 +88,14 @@
       loading = true;
       error = '';
       
+      console.log('Loading profile...');
       const userResponse = await apiService.getProfile();
+      console.log('User response:', userResponse);
       
       if (userResponse.success && userResponse.user) {
         const user = userResponse.user;
         
+        // Initialize profile with user data
         profile = {
           displayName: user.displayName || '',
           bio: user.bio || '',
@@ -114,10 +117,15 @@
         };
         imagePreview = profile.profileImage;
         
+        console.log('User role:', user.role);
+        
         // Load role-specific profile
         try {
           if (user.role === 'recruiter') {
+            console.log('Loading recruiter profile...');
             const recruiterResponse = await apiService.getRecruiterProfile();
+            console.log('Recruiter response:', recruiterResponse);
+            
             if (recruiterResponse.success && recruiterResponse.profile) {
               profile = {
                 ...profile,
@@ -128,32 +136,44 @@
               };
             }
           } else {
+            console.log('Loading candidate profile...');
             const candidateResponse = await apiService.getCandidateProfile();
+            console.log('Candidate response:', candidateResponse);
+            
             if (candidateResponse.success && candidateResponse.profile) {
+              const candidateProfile = candidateResponse.profile;
               profile = {
                 ...profile,
-                major: candidateResponse.profile.major || '',
-                fieldOfStudy: candidateResponse.profile.fieldOfStudy || '',
-                educationLevel: candidateResponse.profile.educationLevel || '',
-                university: candidateResponse.profile.university || '',
-                yearsOfExperience: candidateResponse.profile.yearsOfExperience || 0,
-                portfolioUrl: candidateResponse.profile.portfolioUrl || '',
-                githubUrl: candidateResponse.profile.githubUrl || '',
-                availability: candidateResponse.profile.availability || '',
-                workHistory: candidateResponse.profile.workHistory || [],
-                isPublished: candidateResponse.profile.isPublished || false,
-                bio: candidateResponse.profile.bio || profile.bio,
-                skills: candidateResponse.profile.skills || profile.skills
+                major: candidateProfile.major || '',
+                fieldOfStudy: candidateProfile.fieldOfStudy || '',
+                educationLevel: candidateProfile.educationLevel || '',
+                university: candidateProfile.university || '',
+                yearsOfExperience: candidateProfile.yearsOfExperience || 0,
+                portfolioUrl: candidateProfile.portfolioUrl || '',
+                githubUrl: candidateProfile.githubUrl || '',
+                availability: candidateProfile.availability || '',
+                workHistory: candidateProfile.workHistory || [],
+                isPublished: candidateProfile.isPublished || false,
+                bio: candidateProfile.bio || profile.bio,
+                skills: candidateProfile.skills || profile.skills
               };
             }
           }
         } catch (roleError) {
-          console.log('No role-specific profile found:', roleError.message);
+          console.log('No role-specific profile found or error loading:', roleError.message);
+          // This is normal for new users - they may not have role-specific profiles yet
         }
+        
+        console.log('Final profile loaded:', profile);
+      } else {
+        throw new Error('Failed to load user profile');
       }
     } catch (err) {
+      console.error('Profile loading error:', err);
       error = 'Failed to load profile: ' + err.message;
+      
       if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
+        console.log('Authentication error, redirecting to login');
         localStorage.removeItem('auth_user');
         goto('/auth/login');
       }
@@ -232,12 +252,15 @@
       error = '';
       success = '';
       
+      console.log('Starting profile save...', { profile });
+      
+      // Validation
       if (!profile.displayName || profile.displayName.trim().length < 2) {
         error = 'Display name must be at least 2 characters';
         return;
       }
       
-      if (profile.bio.length > 500) {
+      if (profile.bio && profile.bio.length > 500) {
         error = 'Bio must not exceed 500 characters';
         return;
       }
@@ -252,27 +275,36 @@
         return;
       }
       
+      // Upload image if needed
       let imageUrl = profile.profileImage;
       if (imageFile) {
+        console.log('Uploading image...');
         imageUrl = await uploadImage();
+        console.log('Image uploaded:', imageUrl);
       }
       
-      // Update basic profile
+      // Update basic profile first
       const updateData = {
         displayName: profile.displayName.trim(),
-        bio: profile.bio.trim(),
-        skills: profile.skills,
-        profileImage: imageUrl,
-        preferences: profile.preferences
+        bio: profile.bio?.trim() || '',
+        skills: profile.skills || [],
+        profileImage: imageUrl || '',
+        preferences: profile.preferences || {
+          preferredTokens: [],
+          notifications: true,
+          emailNotifications: true
+        }
       };
       
-      await apiService.put('/users/profile', updateData);
+      console.log('Updating basic profile...', updateData);
+      const basicProfileResponse = await apiService.put('/users/profile', updateData);
+      console.log('Basic profile updated:', basicProfileResponse);
       
       // Update candidate-specific profile if not recruiter
       if (isCandidate) {
         const candidateData = {
-          bio: profile.bio.trim(),
-          skills: profile.skills,
+          bio: profile.bio?.trim() || '',
+          skills: profile.skills || [],
           major: profile.major || '',
           university: profile.university || '',
           educationLevel: profile.educationLevel || '',
@@ -280,15 +312,20 @@
           portfolioUrl: profile.portfolioUrl || '',
           githubUrl: profile.githubUrl || '',
           availability: profile.availability || '',
-          isPublished: profile.isPublished
+          isPublished: profile.isPublished || false
         };
         
+        console.log('Updating candidate profile...', candidateData);
+        
         try {
-          await apiService.put('/users/candidate-profile', candidateData);
+          const candidateResponse = await apiService.put('/users/candidate-profile', candidateData);
+          console.log('Candidate profile updated:', candidateResponse);
         } catch (err) {
+          console.log('Candidate profile update failed, trying to create...', err.message);
           // If profile doesn't exist, create it
-          if (err.message?.includes('not found') || err.message?.includes('404')) {
-            await apiService.post('/users/candidate-profile', candidateData);
+          if (err.message?.includes('not found') || err.message?.includes('404') || err.message?.includes('PROFILE_NOT_FOUND')) {
+            const createResponse = await apiService.post('/users/candidate-profile', candidateData);
+            console.log('Candidate profile created:', createResponse);
           } else {
             throw err;
           }
@@ -296,8 +333,15 @@
       }
       
       success = 'Profile updated successfully!';
-      setTimeout(() => goto('/dashboard'), 1500);
+      console.log('Profile save completed successfully');
+      
+      // Redirect after a short delay
+      setTimeout(() => {
+        goto('/dashboard');
+      }, 1500);
+      
     } catch (err) {
+      console.error('Profile save failed:', err);
       error = 'Failed to update profile: ' + err.message;
     } finally {
       saving = false;
@@ -339,6 +383,16 @@
         {#if success}
           <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200 px-4 py-3 rounded-lg">
             {success}
+          </div>
+        {/if}
+
+        <!-- Debug info (remove in production) -->
+        {#if saving}
+          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 px-4 py-3 rounded-lg">
+            <div class="flex items-center gap-2">
+              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              Saving profile... Please wait.
+            </div>
           </div>
         {/if}
 

@@ -318,21 +318,9 @@ class PortfolioAnalyzer {
     this.analysisInProgress.add(candidateId);
 
     try {
-      // Create initial analysis record
-      const analysis = new PortfolioAnalysis({
-        candidateId,
-        portfolioUrl,
-        githubUrl,
-        status: 'analyzing'
-      });
-      await analysis.save();
-
       // Validate URLs first (Requirement 11.2)
       const validation = await this.validateUrls(portfolioUrl, githubUrl);
       if (validation.errors.length > 0) {
-        analysis.status = 'failed';
-        analysis.error = validation.errors.join('; ');
-        await analysis.save();
         throw new Error(validation.errors.join('; '));
       }
 
@@ -386,13 +374,18 @@ class PortfolioAnalyzer {
       // Generate improvement suggestions using Gemini AI (Requirement 2.4)
       const improvements = await this.generateImprovementSuggestions(scores, portfolioData || {}, githubData || {});
 
-      // Update analysis with results
-      analysis.scores = scores;
-      analysis.githubData = githubData || {};
-      analysis.portfolioData = portfolioData || {};
-      analysis.improvements = improvements;
-      analysis.status = 'completed';
-      analysis.analyzedAt = new Date();
+      // Create and save analysis with all required data
+      const analysis = new PortfolioAnalysis({
+        candidateId,
+        portfolioUrl,
+        githubUrl,
+        scores,
+        githubData: githubData || {},
+        portfolioData: portfolioData || {},
+        improvements,
+        status: 'completed',
+        analyzedAt: new Date()
+      });
 
       await analysis.save();
 
@@ -409,14 +402,26 @@ class PortfolioAnalyzer {
       };
 
     } catch (error) {
-      // Update analysis with error
+      // Create failed analysis record
       try {
-        const analysis = await PortfolioAnalysis.findOne({ candidateId }).sort({ createdAt: -1 });
-        if (analysis) {
-          analysis.status = 'failed';
-          analysis.error = error.message;
-          await analysis.save();
-        }
+        const failedAnalysis = new PortfolioAnalysis({
+          candidateId,
+          portfolioUrl: portfolioUrl || '',
+          githubUrl: githubUrl || '',
+          scores: {
+            overall: 0,
+            codeQuality: 0,
+            projectDepth: 0,
+            portfolioCompleteness: 0
+          },
+          githubData: {},
+          portfolioData: {},
+          improvements: [],
+          status: 'failed',
+          error: error.message,
+          analyzedAt: new Date()
+        });
+        await failedAnalysis.save();
       } catch (saveError) {
         console.error('Failed to save error state:', saveError);
       }

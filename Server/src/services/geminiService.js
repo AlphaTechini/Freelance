@@ -348,7 +348,7 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
       return lines.slice(0, 5).map((suggestion, index) => ({
         priority: index + 1,
         suggestion: suggestion.replace(/^\d+\.?\s*/, '').trim(),
-        category: 'general',
+        category: 'portfolio',
         impact: 'medium'
       }));
     } catch (error) {
