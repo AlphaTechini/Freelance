@@ -122,6 +122,13 @@
         };
         imagePreview = profile.profileImage;
         
+        console.log('Initial profile from user data:', {
+          displayName: profile.displayName,
+          bio: profile.bio,
+          skills: profile.skills,
+          role: user.role
+        });
+        
         console.log('User role:', user.role);
         
         // Load role-specific profile
@@ -147,6 +154,13 @@
             
             if (candidateResponse.success && candidateResponse.profile) {
               const candidateProfile = candidateResponse.profile;
+              console.log('Candidate profile data:', {
+                bio: candidateProfile.bio,
+                skills: candidateProfile.skills,
+                major: candidateProfile.major,
+                university: candidateProfile.university
+              });
+              
               profile = {
                 ...profile,
                 major: candidateProfile.major || '',
@@ -159,9 +173,20 @@
                 availability: candidateProfile.availability || '',
                 workHistory: candidateProfile.workHistory || [],
                 isPublished: candidateProfile.isPublished || false,
+                // Only override bio and skills if candidate profile has them, otherwise keep user profile data
                 bio: candidateProfile.bio || profile.bio,
-                skills: candidateProfile.skills || profile.skills
+                skills: (candidateProfile.skills && candidateProfile.skills.length > 0) ? candidateProfile.skills : profile.skills
               };
+              
+              console.log('Profile after merging candidate data:', {
+                displayName: profile.displayName,
+                bio: profile.bio,
+                skills: profile.skills,
+                major: profile.major,
+                university: profile.university
+              });
+            } else {
+              console.log('No candidate profile found or empty response');
             }
           }
         } catch (roleError) {
@@ -343,7 +368,14 @@
           console.log('Candidate profile update failed, trying to create...', err.message);
           // If profile doesn't exist, create it
           if (err.message?.includes('not found') || err.message?.includes('404') || err.message?.includes('PROFILE_NOT_FOUND')) {
-            const createResponse = await apiService.post('/users/candidate-profile', candidateData);
+            // When creating, we need to include required fields
+            const createData = {
+              ...candidateData,
+              // Ensure we have the required fields from the user data
+              bio: candidateData.bio || updateData.bio || '',
+              skills: candidateData.skills.length > 0 ? candidateData.skills : updateData.skills || []
+            };
+            const createResponse = await apiService.post('/users/candidate-profile', createData);
             console.log('Candidate profile created:', createResponse);
           } else {
             throw err;
