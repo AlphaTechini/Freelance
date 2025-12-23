@@ -101,6 +101,7 @@
           bio: user.bio || '',
           skills: user.skills || [],
           profileImage: user.profileImage || '',
+          // Candidate fields
           githubUrl: '',
           portfolioUrl: '',
           university: '',
@@ -109,6 +110,10 @@
           yearsOfExperience: 0,
           availability: '',
           isPublished: false,
+          // Recruiter fields
+          company: '',
+          position: '',
+          industry: '',
           preferences: {
             preferredTokens: user.preferences?.preferredTokens || [],
             notifications: user.preferences?.notifications ?? true,
@@ -260,19 +265,33 @@
         return;
       }
       
+      // Recruiter-specific validation
+      if (!isCandidate) {
+        if (!profile.company || profile.company.trim().length < 2) {
+          error = 'Company name is required';
+          return;
+        }
+        if (!profile.position || profile.position.trim().length < 2) {
+          error = 'Your role in company is required';
+          return;
+        }
+      }
+      
       if (profile.bio && profile.bio.length > 500) {
         error = 'Bio must not exceed 500 characters';
         return;
       }
       
-      // Validate URLs
-      if (profile.githubUrl && !isValidUrl(profile.githubUrl)) {
-        error = 'Please enter a valid GitHub URL';
-        return;
-      }
-      if (profile.portfolioUrl && !isValidUrl(profile.portfolioUrl)) {
-        error = 'Please enter a valid Portfolio URL';
-        return;
+      // Validate URLs (only for candidates)
+      if (isCandidate) {
+        if (profile.githubUrl && !isValidUrl(profile.githubUrl)) {
+          error = 'Please enter a valid GitHub URL';
+          return;
+        }
+        if (profile.portfolioUrl && !isValidUrl(profile.portfolioUrl)) {
+          error = 'Please enter a valid Portfolio URL';
+          return;
+        }
       }
       
       // Upload image if needed
@@ -326,6 +345,30 @@
           if (err.message?.includes('not found') || err.message?.includes('404') || err.message?.includes('PROFILE_NOT_FOUND')) {
             const createResponse = await apiService.post('/users/candidate-profile', candidateData);
             console.log('Candidate profile created:', createResponse);
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        // Update recruiter-specific profile
+        const recruiterData = {
+          company: profile.company?.trim() || '',
+          position: profile.position?.trim() || '',
+          industry: profile.industry?.trim() || '',
+          bio: profile.bio?.trim() || ''
+        };
+        
+        console.log('Updating recruiter profile...', recruiterData);
+        
+        try {
+          const recruiterResponse = await apiService.put('/users/recruiter-profile', recruiterData);
+          console.log('Recruiter profile updated:', recruiterResponse);
+        } catch (err) {
+          console.log('Recruiter profile update failed, trying to create...', err.message);
+          // If profile doesn't exist, create it
+          if (err.message?.includes('not found') || err.message?.includes('404') || err.message?.includes('PROFILE_NOT_FOUND')) {
+            const createResponse = await apiService.post('/users/recruiter-profile', recruiterData);
+            console.log('Recruiter profile created:', createResponse);
           } else {
             throw err;
           }
@@ -435,7 +478,25 @@
               <Input id="displayName" type="text" bind:value={profile.displayName} placeholder="Enter your full name" required minlength={2} maxlength={50} />
             </div>
             
-            {#if isCandidate}
+            {#if !isCandidate}
+              <!-- Recruiter-specific fields -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label for="company" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Company Name *</label>
+                  <Input id="company" type="text" bind:value={profile.company} placeholder="Your company name" required />
+                </div>
+                <div>
+                  <label for="position" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Role in Company *</label>
+                  <Input id="position" type="text" bind:value={profile.position} placeholder="HR Manager, CTO, Founder, etc." required />
+                </div>
+              </div>
+              
+              <div>
+                <label for="industry" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Industry</label>
+                <Input id="industry" type="text" bind:value={profile.industry} placeholder="Technology, Finance, Healthcare, etc." />
+              </div>
+            {:else}
+              <!-- Candidate-specific fields -->
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label for="university" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">University</label>
@@ -499,9 +560,11 @@
           </div>
         {/if}
 
-        <!-- Skills & Technologies -->
+        <!-- Skills & Technologies (Both recruiters and candidates can have skills) -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Skills & Technologies</h2>
+          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+            {#if isCandidate}Skills & Technologies{:else}Skills & Expertise{/if}
+          </h2>
           <div class="space-y-4">
             {#if profile.skills.length > 0}
               <div class="flex flex-wrap gap-2">
@@ -536,16 +599,18 @@
 
         <!-- Bio / Experience Summary -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Bio / Experience Summary</h2>
+          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+            {#if isCandidate}Bio / Experience Summary{:else}Company / Role Description{/if}
+          </h2>
           <textarea
             id="bio"
             bind:value={profile.bio}
-            placeholder="Tell us about yourself, your experience, and what you're looking for..."
+            placeholder={isCandidate ? "Tell us about yourself, your experience, and what you're looking for..." : "Describe your company, your role, and what kind of talent you're looking for..."}
             maxlength={500}
             rows="4"
             class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
           ></textarea>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{profile.bio.length}/500 characters</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{profile.bio?.length || 0}/500 characters</p>
         </div>
 
         <!-- Availability (Candidate only) -->
