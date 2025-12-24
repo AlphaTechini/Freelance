@@ -37,8 +37,7 @@
       <!-- Logo -->
       <div class="flex items-center">
         <a href="/" class="logo">
-          <img src="/icon.png" alt="MeritStack" class="logo-icon" />
-          <span class="logo-text">MeritStack</span>
+          <img src="/icon.png" alt="Kiro" class="logo-icon" />
         </a>
       </div>
 
@@ -264,7 +263,6 @@
   .logo {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
     text-decoration: none;
     transition: all 0.2s ease;
   }
@@ -274,21 +272,11 @@
   }
 
   .logo-icon {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 6px;
-    object-fit: contain;
-  }
-
-  .logo-text {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--accent-color);
-    transition: color 0.2s ease;
-  }
-
-  .logo:hover .logo-text {
-    color: var(--accent-hover);
+    width: 3rem;
+    height: 3rem;
+    border-radius: 8px;
+    object-fit: cover;
+    aspect-ratio: 1;
   }
 
   .nav-link {
