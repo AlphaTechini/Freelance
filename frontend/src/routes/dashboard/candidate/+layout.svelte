@@ -52,16 +52,27 @@
     try {
       // Use candidate._id if available, otherwise fall back to username
       const candidateId = candidate?._id || candidate?.username || $authStore.user?.username;
-      if (!candidateId) return;
+      if (!candidateId) {
+        console.warn('No candidate ID available for portfolio analysis');
+        return;
+      }
       
+      console.log('Loading portfolio analysis for:', candidateId);
       const analysisResponse = await apiService.getPortfolioAnalysis(candidateId);
+      console.log('Portfolio analysis response:', analysisResponse);
+      
       if (analysisResponse.success && analysisResponse.data) {
         portfolioAnalysis = analysisResponse.data;
+        console.log('Portfolio analysis loaded successfully');
       } else if (analysisResponse.success && analysisResponse.analysis) {
         portfolioAnalysis = analysisResponse.analysis;
+        console.log('Portfolio analysis loaded successfully (legacy format)');
+      } else {
+        console.warn('No portfolio analysis data found');
       }
     } catch (err) {
       console.error('Failed to load portfolio analysis:', err);
+      // Don't show error to user for missing analysis - it's normal for new users
     }
   }
   

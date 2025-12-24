@@ -11,13 +11,13 @@ const portfolioAnalysisSchema = new mongoose.Schema({
   // URLs analyzed
   portfolioUrl: {
     type: String,
-    required: true,
+    default: '',
     trim: true
   },
   
   githubUrl: {
     type: String,
-    required: true,
+    default: '',
     trim: true
   },
   

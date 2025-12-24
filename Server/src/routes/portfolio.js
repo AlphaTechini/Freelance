@@ -153,33 +153,45 @@ async function portfolioRoutes(fastify, options) {
   }, async (request, reply) => {
     try {
       const { candidateId } = request.params;
+      
+      console.log(`Getting portfolio analysis for candidate: ${candidateId}`);
 
       // Try to find candidate by various identifiers
-      const candidate = await CandidateProfile.findOne({
-        $or: [
-          { _id: candidateId },
-          { userId: candidateId },
-          { username: candidateId }
-        ]
-      });
+      let candidate = null;
+      try {
+        const CandidateProfile = (await import('../models/CandidateProfile.js')).default;
+        candidate = await CandidateProfile.findOne({
+          $or: [
+            { _id: candidateId },
+            { userId: candidateId },
+            { username: candidateId }
+          ]
+        });
+        console.log(`Found candidate:`, candidate ? 'Yes' : 'No');
+      } catch (candidateError) {
+        console.error('Error finding candidate:', candidateError);
+      }
 
       // Use the found candidate's _id or the original candidateId
       const lookupId = candidate ? candidate._id.toString() : candidateId;
+      console.log(`Looking up analysis for ID: ${lookupId}`);
 
       let analysis = await portfolioAnalyzer.getLatestAnalysis(lookupId);
+      console.log(`Found existing analysis:`, analysis ? 'Yes' : 'No');
 
       // If no analysis exists, create a mock one
       if (!analysis) {
         console.log(`No analysis found for ${candidateId}, generating mock analysis`);
         try {
           analysis = await portfolioAnalyzer.generateMockAnalysis(lookupId);
+          console.log('Mock analysis generated successfully');
         } catch (mockError) {
           console.error('Failed to generate mock analysis:', mockError);
           // Return a basic mock response
           return reply.send({
             success: true,
             data: {
-              analysisId: 'mock',
+              analysisId: 'mock-' + Date.now(),
               candidateId: lookupId,
               status: 'completed',
               scores: {
@@ -224,6 +236,7 @@ async function portfolioRoutes(fastify, options) {
         }
       }
 
+      console.log('Returning analysis data');
       reply.send({
         success: true,
         data: {
@@ -240,10 +253,14 @@ async function portfolioRoutes(fastify, options) {
       });
 
     } catch (error) {
-      fastify.log.error('Get analysis error:', error);
+      console.error('Get analysis error - Full details:', {
+        message: error.message,
+        stack: error.stack,
+        candidateId: request.params.candidateId
+      });
       reply.status(500).send({
         success: false,
-        error: 'Failed to retrieve analysis'
+        error: 'Failed to retrieve analysis: ' + error.message
       });
     }
   });

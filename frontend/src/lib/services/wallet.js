@@ -33,16 +33,31 @@ export const connectMetaMask = async () => {
     // Request account access
     await window.ethereum.request({ method: 'eth_requestAccounts' });
     
-    // Create provider and signer
+    // Create provider with better error handling
     const provider = new ethers.BrowserProvider(window.ethereum);
+    
+    // Add retry logic for network operations
     const signer = await provider.getSigner();
     const address = await signer.getAddress();
-    const network = await provider.getNetwork();
     
-    // Try to get balance with error handling
+    let network;
+    let chainId = 1; // Default to mainnet
+    try {
+      network = await provider.getNetwork();
+      chainId = Number(network.chainId);
+    } catch (networkError) {
+      console.warn('Could not fetch network info, using default:', networkError.message);
+    }
+    
+    // Try to get balance with better error handling and timeout
     let balance = '0';
     try {
-      const balanceWei = await provider.getBalance(address);
+      const balancePromise = provider.getBalance(address);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Balance fetch timeout')), 5000)
+      );
+      
+      const balanceWei = await Promise.race([balancePromise, timeoutPromise]);
       balance = ethers.formatEther(balanceWei);
     } catch (balanceError) {
       console.warn('Could not fetch balance, using default:', balanceError.message);
@@ -55,18 +70,30 @@ export const connectMetaMask = async () => {
       address,
       provider,
       signer,
-      chainId: Number(network.chainId),
+      chainId,
       balance,
       walletType: WALLET_TYPES.METAMASK
     });
 
-    // Listen for account changes
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    window.ethereum.on('chainChanged', handleChainChanged);
+    // Listen for account changes with error handling
+    if (window.ethereum.on) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+    }
 
-    return { address, chainId: Number(network.chainId), walletType: WALLET_TYPES.METAMASK };
+    return { address, chainId, walletType: WALLET_TYPES.METAMASK };
   } catch (error) {
     console.error('Error connecting to MetaMask:', error);
+    
+    // Provide more specific error messages
+    if (error.code === 4001) {
+      throw new Error('User rejected the connection request');
+    } else if (error.code === -32002) {
+      throw new Error('MetaMask is busy. Please try again.');
+    } else if (error.message?.includes('RPC')) {
+      throw new Error('Network connection issue. Please check your internet connection and try again.');
+    }
+    
     throw error;
   }
 };
