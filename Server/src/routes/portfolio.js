@@ -86,11 +86,25 @@ async function portfolioRoutes(fastify, options) {
       }
 
       // Use URLs from request or fall back to candidate profile
-      const finalPortfolioUrl = portfolioUrl || candidate.portfolioUrl;
-      const finalGithubUrl = githubUrl || candidate.githubUrl;
+      const finalPortfolioUrl = (portfolioUrl || candidate.portfolioUrl || '').trim();
+      const finalGithubUrl = (githubUrl || candidate.githubUrl || '').trim();
+
+      console.log('Portfolio analysis request:', {
+        requestedCandidateId: candidateId,
+        foundCandidate: candidate._id.toString(),
+        requestPortfolioUrl: portfolioUrl,
+        requestGithubUrl: githubUrl,
+        candidatePortfolioUrl: candidate.portfolioUrl,
+        candidateGithubUrl: candidate.githubUrl,
+        finalPortfolioUrl,
+        finalGithubUrl
+      });
+
+      // Use consistent ID (always use candidate._id for storage)
+      const consistentId = candidate._id.toString();
 
       // Check if analysis is already in progress
-      if (portfolioAnalyzer.isAnalysisInProgress(candidateId)) {
+      if (portfolioAnalyzer.isAnalysisInProgress(consistentId)) {
         return reply.status(409).send({
           success: false,
           error: 'Analysis already in progress for this candidate'
@@ -99,7 +113,7 @@ async function portfolioRoutes(fastify, options) {
 
       // Start analysis (async) - now works even without URLs
       const analysisPromise = portfolioAnalyzer.analyzePortfolio(
-        candidateId,
+        consistentId,
         finalPortfolioUrl,
         finalGithubUrl
       );
@@ -109,7 +123,7 @@ async function portfolioRoutes(fastify, options) {
         success: true,
         data: {
           message: finalPortfolioUrl || finalGithubUrl ? 'Portfolio analysis started' : 'Mock analysis generated',
-          candidateId,
+          candidateId: consistentId,
           status: 'analyzing'
         }
       });

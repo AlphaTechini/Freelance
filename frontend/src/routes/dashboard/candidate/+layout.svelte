@@ -82,15 +82,27 @@
       // Use candidate._id if available, otherwise fall back to username
       const candidateId = candidate?._id || candidate?.username || $authStore.user?.username;
       
-      const response = await apiService.analyzePortfolio(candidateId);
+      // Pass the candidate's URLs to ensure real analysis is triggered
+      const response = await apiService.analyzePortfolio(
+        candidateId,
+        candidate?.portfolioUrl || null,
+        candidate?.githubUrl || null
+      );
+      
       if (response.success && response.data) {
-        portfolioAnalysis = response.data;
+        // Analysis started - wait a bit then reload the analysis
+        setTimeout(async () => {
+          await loadPortfolioAnalysis();
+          analysisLoading = false;
+        }, 3000);
       } else if (response.success && response.analysis) {
         portfolioAnalysis = response.analysis;
+        analysisLoading = false;
+      } else {
+        analysisLoading = false;
       }
     } catch (err) {
       error = 'Failed to analyze portfolio: ' + err.message;
-    } finally {
       analysisLoading = false;
     }
   }

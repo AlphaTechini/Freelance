@@ -45,10 +45,11 @@ class WarmupService {
         await apiService.healthCheck();
         
         this.statusMessage = 'Backend started!';
+        console.log('✅ Backend warmed up successfully');
         console.log('✅ Backend is now warm and ready');
         
-        // If this was attempt 5 (or later), trigger page reload
-        if (this.retryCount >= 4 && this.shouldReloadOnSuccess) {
+        // If this was attempt 3, 4, or 5, trigger page reload
+        if (this.shouldReloadOnSuccess) {
           console.log('🔄 Backend warmed up successfully! Reloading page in 2 seconds...');
           setTimeout(() => {
             window.location.reload();

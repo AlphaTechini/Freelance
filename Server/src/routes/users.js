@@ -597,6 +597,14 @@ export default async function userRoutes(fastify, options) {
           });
         }
         
+        console.log('Candidate profile fetched:', {
+          profileId: profile._id,
+          portfolioUrl: profile.portfolioUrl,
+          githubUrl: profile.githubUrl,
+          bio: profile.bio?.substring(0, 50),
+          skills: profile.skills?.length
+        });
+        
         return reply.code(200).send({
           success: true,
           profile
@@ -678,6 +686,14 @@ export default async function userRoutes(fastify, options) {
         // Prepare update data - remove empty strings for optional fields
         const updateData = { ...request.body };
         
+        console.log('Candidate profile update request:', {
+          userId,
+          portfolioUrl: updateData.portfolioUrl,
+          githubUrl: updateData.githubUrl,
+          skills: updateData.skills?.length,
+          bio: updateData.bio?.substring(0, 50)
+        });
+        
         // Don't update educationLevel if it's empty (keep existing value)
         if (updateData.educationLevel === '') {
           delete updateData.educationLevel;
@@ -698,6 +714,12 @@ export default async function userRoutes(fastify, options) {
             }
           });
         }
+        
+        console.log('Candidate profile updated:', {
+          profileId: profile._id,
+          portfolioUrl: profile.portfolioUrl,
+          githubUrl: profile.githubUrl
+        });
         
         return reply.code(200).send({
           success: true,
