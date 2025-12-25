@@ -7,7 +7,8 @@
     isWarming: false,
     isWarmed: false,
     retryCount: 0,
-    maxRetries: 5
+    maxRetries: 5,
+    statusMessage: 'Connecting...'
   });
 
   let statusInterval;
@@ -36,19 +37,24 @@
     // Show status if warming up or if there have been retries
     showStatus = status.isWarming || (status.retryCount > 0 && !status.isWarmed);
     
-    // Hide status after warmup is complete
+    // Hide status after warmup is complete (with longer delay to show "Backend started!")
     if (status.isWarmed && statusInterval) {
       setTimeout(() => {
         showStatus = false;
         clearInterval(statusInterval);
         statusInterval = null;
-      }, 2000);
+      }, 3000); // 3 seconds to show success message
     }
   }
 
   function getStatusMessage() {
+    // Use the status message from the service if available
+    if (warmupStatus.statusMessage) {
+      return warmupStatus.statusMessage;
+    }
+    
     if (warmupStatus.isWarmed) {
-      return 'Backend ready!';
+      return 'Backend started!';
     }
     
     if (warmupStatus.isWarming) {
