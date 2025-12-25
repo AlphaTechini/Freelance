@@ -14,6 +14,7 @@
     minExperience: 0,
     educationPreference: 'Any',
     roleType: 'Full-time',
+    period: 'Full-time',
     budget: {
       min: 0,
       max: 0,
@@ -79,6 +80,7 @@
           minExperience: 0,
           educationPreference: 'Any',
           roleType: 'Full-time',
+          period: 'Full-time',
           budget: { min: 0, max: 0, currency: 'USD' },
           location: 'Remote',
           maxCandidates: 10,
@@ -165,6 +167,24 @@
           <option value="Contract">Contract</option>
           <option value="Internship">Internship</option>
           <option value="Freelance">Freelance</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="period" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Period / Duration *
+        </label>
+        <select
+          id="period"
+          bind:value={formData.period}
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          required
+        >
+          <option value="Full-time">Full-time</option>
+          <option value="Part-time">Part-time</option>
+          <option value="Contract">Contract</option>
+          <option value="6 Months">6 Months</option>
+          <option value="3 Months">3 Months</option>
         </select>
       </div>
 

@@ -9,8 +9,8 @@
   let error = $state('');
   let success = $state('');
   
-  async function handleJobCreated(event) {
-    const { job } = event.detail;
+  function handleJobCreated(event) {
+    const job = event.detail;
     success = 'Job posting created successfully!';
     
     // Redirect to job details after a short delay
@@ -50,8 +50,8 @@
   <!-- Job Posting Form -->
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
     <JobPostingForm 
-      onSuccess={handleJobCreated}
-      onError={handleError}
+      on:jobCreated={handleJobCreated}
+      on:error={handleError}
     />
   </div>
 </div>
