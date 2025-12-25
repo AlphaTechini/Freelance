@@ -190,64 +190,19 @@ async function portfolioRoutes(fastify, options) {
       const lookupId = candidate ? candidate._id.toString() : candidateId;
       console.log(`Looking up analysis for ID: ${lookupId}`);
 
-      let analysis = await portfolioAnalyzer.getLatestAnalysis(lookupId);
-      console.log(`Found existing analysis:`, analysis ? 'Yes' : 'No');
+      // Get the latest COMPLETED analysis only (not failed ones)
+      let analysis = await portfolioAnalyzer.getLatestCompletedAnalysis(lookupId);
+      console.log(`Found completed analysis:`, analysis ? 'Yes' : 'No');
 
-      // If no analysis exists, create a mock one
+      // If no completed analysis exists, return null - don't auto-generate
+      // User should click "Start Analysis" or "Re-analyze" to trigger analysis
       if (!analysis) {
-        console.log(`No analysis found for ${candidateId}, generating mock analysis`);
-        try {
-          analysis = await portfolioAnalyzer.generateMockAnalysis(lookupId);
-          console.log('Mock analysis generated successfully');
-        } catch (mockError) {
-          console.error('Failed to generate mock analysis:', mockError);
-          // Return a basic mock response
-          return reply.send({
-            success: true,
-            data: {
-              analysisId: 'mock-' + Date.now(),
-              candidateId: lookupId,
-              status: 'completed',
-              scores: {
-                overall: 65,
-                codeQuality: 70,
-                projectDepth: 60,
-                portfolioCompleteness: 65
-              },
-              githubData: {
-                repositories: 3,
-                stars: 2,
-                commits: 25,
-                languages: ['JavaScript', 'HTML', 'CSS'],
-                lastActivity: new Date(),
-                topProjects: []
-              },
-              portfolioData: {
-                projects: [{
-                  name: 'Sample Project',
-                  description: 'A sample project showcasing development skills',
-                  techStack: ['JavaScript', 'HTML', 'CSS'],
-                  complexity: 'moderate'
-                }],
-                readmeQuality: 'good',
-                hasDeployedProjects: true
-              },
-              improvements: [
-                {
-                  priority: 1,
-                  suggestion: 'Add more projects to showcase your skills',
-                  category: 'portfolio'
-                },
-                {
-                  priority: 2,
-                  suggestion: 'Improve documentation in your repositories',
-                  category: 'documentation'
-                }
-              ],
-              analyzedAt: new Date()
-            }
-          });
-        }
+        console.log(`No completed analysis found for ${candidateId}`);
+        return reply.send({
+          success: true,
+          data: null,
+          message: 'No analysis found. Click "Start Analysis" to analyze your portfolio.'
+        });
       }
 
       console.log('Returning analysis data');
@@ -261,8 +216,7 @@ async function portfolioRoutes(fastify, options) {
           githubData: analysis.githubData,
           portfolioData: analysis.portfolioData,
           improvements: analysis.improvements,
-          analyzedAt: analysis.analyzedAt,
-          error: analysis.error
+          analyzedAt: analysis.analyzedAt
         }
       });
 

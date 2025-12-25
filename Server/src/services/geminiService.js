@@ -334,13 +334,58 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
    * Parse improvement suggestions response
    */
   parseImprovementSuggestions(response) {
+    // Valid categories that match the MongoDB schema enum
+    const validCategories = ['code', 'portfolio', 'github', 'documentation'];
+    
+    // Map common AI-generated categories to valid ones
+    const categoryMapping = {
+      'general': 'portfolio',
+      'skills': 'code',
+      'projects': 'portfolio',
+      'experience': 'portfolio',
+      'presentation': 'portfolio',
+      'design': 'portfolio',
+      'content': 'documentation',
+      'readme': 'documentation',
+      'docs': 'documentation',
+      'repo': 'github',
+      'repository': 'github',
+      'commits': 'github',
+      'activity': 'github',
+      'coding': 'code',
+      'programming': 'code',
+      'technical': 'code',
+      'quality': 'code'
+    };
+
+    const sanitizeCategory = (category) => {
+      if (!category) return 'portfolio';
+      const lowerCategory = category.toLowerCase().trim();
+      if (validCategories.includes(lowerCategory)) return lowerCategory;
+      if (categoryMapping[lowerCategory]) return categoryMapping[lowerCategory];
+      return 'portfolio'; // Default fallback
+    };
+
+    const sanitizePriority = (priority) => {
+      const num = parseInt(priority, 10);
+      if (isNaN(num) || num < 1) return 1;
+      if (num > 5) return 5;
+      return num;
+    };
+
     try {
       const content = response.text || response.content || response.choices?.[0]?.message?.content;
       
       // Try to extract JSON array from the response
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        // Sanitize each suggestion to ensure valid categories
+        return parsed.slice(0, 5).map((item, index) => ({
+          priority: sanitizePriority(item.priority || index + 1),
+          suggestion: String(item.suggestion || 'Improve your portfolio').trim(),
+          category: sanitizeCategory(item.category)
+        }));
       }
       
       // Fallback: parse text suggestions
@@ -348,8 +393,7 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
       return lines.slice(0, 5).map((suggestion, index) => ({
         priority: index + 1,
         suggestion: suggestion.replace(/^\d+\.?\s*/, '').trim(),
-        category: 'portfolio',
-        impact: 'medium'
+        category: 'portfolio'
       }));
     } catch (error) {
       console.error('Failed to parse improvement suggestions:', error);
@@ -357,8 +401,7 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
         {
           priority: 1,
           suggestion: 'Continue developing your portfolio with more projects',
-          category: 'portfolio',
-          impact: 'high'
+          category: 'portfolio'
         }
       ];
     }

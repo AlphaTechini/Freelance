@@ -166,6 +166,56 @@ class PortfolioAnalyzer {
   }
 
   /**
+   * Sanitize improvements array to ensure valid categories for MongoDB schema
+   * @param {Array} improvements - Raw improvements array
+   * @returns {Array} - Sanitized improvements array
+   */
+  sanitizeImprovements(improvements) {
+    const validCategories = ['code', 'portfolio', 'github', 'documentation'];
+    const categoryMapping = {
+      'general': 'portfolio',
+      'skills': 'code',
+      'projects': 'portfolio',
+      'experience': 'portfolio',
+      'presentation': 'portfolio',
+      'design': 'portfolio',
+      'content': 'documentation',
+      'readme': 'documentation',
+      'docs': 'documentation',
+      'repo': 'github',
+      'repository': 'github',
+      'commits': 'github',
+      'activity': 'github',
+      'coding': 'code',
+      'programming': 'code',
+      'technical': 'code',
+      'quality': 'code'
+    };
+
+    if (!Array.isArray(improvements)) return [];
+
+    return improvements.slice(0, 5).map((item, index) => {
+      let category = String(item.category || 'portfolio').toLowerCase().trim();
+      
+      // Map to valid category
+      if (!validCategories.includes(category)) {
+        category = categoryMapping[category] || 'portfolio';
+      }
+
+      // Ensure priority is valid (1-5)
+      let priority = parseInt(item.priority, 10);
+      if (isNaN(priority) || priority < 1) priority = index + 1;
+      if (priority > 5) priority = 5;
+
+      return {
+        priority,
+        suggestion: String(item.suggestion || 'Improve your portfolio').trim().substring(0, 500),
+        category
+      };
+    });
+  }
+
+  /**
    * Generate improvement suggestions using Gemini AI (Requirement 2.4)
    * @param {object} scores - Calculated scores
    * @param {object} portfolioData - Portfolio analysis results
@@ -173,6 +223,8 @@ class PortfolioAnalyzer {
    * @returns {Promise<Array>} - Array of AI-generated improvement suggestions
    */
   async generateImprovementSuggestions(scores, portfolioData, githubData) {
+    let suggestions = [];
+    
     try {
       // Try Gemini AI first for AI-powered suggestions
       const aiSuggestions = await geminiService.generateImprovementSuggestions(
@@ -181,14 +233,19 @@ class PortfolioAnalyzer {
       );
       
       if (aiSuggestions && aiSuggestions.length > 0) {
-        return aiSuggestions;
+        suggestions = aiSuggestions;
       }
     } catch (error) {
       console.warn('Gemini AI suggestions failed, falling back to rule-based:', error.message);
     }
 
-    // Fallback to rule-based suggestions
-    return this.generateRuleBasedSuggestions(scores, portfolioData, githubData);
+    // Fallback to rule-based suggestions if AI failed
+    if (suggestions.length === 0) {
+      suggestions = this.generateRuleBasedSuggestions(scores, portfolioData, githubData);
+    }
+
+    // Always sanitize before returning to ensure valid schema
+    return this.sanitizeImprovements(suggestions);
   }
 
   /**
@@ -446,6 +503,18 @@ class PortfolioAnalyzer {
    */
   async getLatestAnalysis(candidateId) {
     return await PortfolioAnalysis.findLatestForCandidate(candidateId);
+  }
+
+  /**
+   * Get latest COMPLETED analysis for candidate (excludes failed ones)
+   * @param {string} candidateId - Candidate identifier
+   * @returns {Promise<object|null>} - Latest completed analysis or null
+   */
+  async getLatestCompletedAnalysis(candidateId) {
+    return await PortfolioAnalysis.findOne({ 
+      candidateId, 
+      status: 'completed' 
+    }).sort({ analyzedAt: -1 });
   }
 
   /**
