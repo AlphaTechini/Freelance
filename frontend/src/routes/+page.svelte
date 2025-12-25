@@ -1,6 +1,5 @@
 <script>
   import { authStore } from '$lib/stores/auth.js';
-  import { walletStore } from '$lib/services/wallet.js';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { Button, ResponsiveLayout } from '$lib/components/ui';
@@ -9,11 +8,15 @@
   let showRoleSelector = false;
 
   onMount(() => {
-    // If user is already authenticated, redirect to appropriate dashboard
-    if ($authStore.user) {
-      // TODO: Redirect based on user role
-      goto('/dashboard');
-    }
+    // Subscribe to auth store to handle async auth initialization
+    const unsubscribe = authStore.subscribe((auth) => {
+      // If user is authenticated (via cookie), redirect to dashboard
+      if (!auth.loading && auth.user) {
+        goto('/dashboard');
+      }
+    });
+
+    return unsubscribe;
   });
 
   function handleGetStarted() {

@@ -23,8 +23,9 @@
           console.log('No user role found, redirecting to profile edit');
           goto('/profile/edit');
         }
-      } else if (!auth.loading && !auth.user && !auth.isWalletConnected) {
-        // User not authenticated, redirect to login
+      } else if (!auth.loading && !auth.user) {
+        // User not authenticated (no valid cookie), redirect to login
+        // Note: Wallet connection is NOT required for cookie-based auth
         goto('/auth/login');
       }
       
