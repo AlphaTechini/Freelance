@@ -154,11 +154,16 @@
             
             if (candidateResponse.success && candidateResponse.profile) {
               const candidateProfile = candidateResponse.profile;
-              console.log('Candidate profile data:', {
+              console.log('Candidate profile data to merge:', {
                 bio: candidateProfile.bio,
                 skills: candidateProfile.skills,
                 major: candidateProfile.major,
-                university: candidateProfile.university
+                university: candidateProfile.university,
+                portfolioUrl: candidateProfile.portfolioUrl,
+                githubUrl: candidateProfile.githubUrl,
+                educationLevel: candidateProfile.educationLevel,
+                yearsOfExperience: candidateProfile.yearsOfExperience,
+                availability: candidateProfile.availability
               });
               
               profile = {
@@ -178,6 +183,12 @@
                 skills: (candidateProfile.skills && candidateProfile.skills.length > 0) ? candidateProfile.skills : profile.skills
               };
               
+              console.log('Profile after merge:', {
+                portfolioUrl: profile.portfolioUrl,
+                githubUrl: profile.githubUrl,
+                major: profile.major,
+                university: profile.university
+              });
               console.log('Profile after merging candidate data:', {
                 displayName: profile.displayName,
                 bio: profile.bio,

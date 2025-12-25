@@ -203,7 +203,7 @@
         <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
           Get AI-powered insights about your portfolio and GitHub profile. We'll analyze your code quality, project depth, and provide personalized improvement suggestions.
         </p>
-        {#if !candidate?.portfolioUrl && !candidate?.githubUrl}
+        {#if !candidate?.portfolioUrl?.trim() && !candidate?.githubUrl?.trim()}
           <p class="text-sm text-orange-600 dark:text-orange-400 mb-4">
             ⚠️ Add your GitHub or Portfolio URL in your profile to enable analysis
           </p>

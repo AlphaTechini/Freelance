@@ -32,10 +32,20 @@
       
       // Load candidate profile
       const candidateResponse = await apiService.getCandidateProfile();
+      console.log('Candidate profile response:', candidateResponse);
+      
       if (candidateResponse.success && candidateResponse.profile) {
         candidate = candidateResponse.profile;
+        console.log('Candidate URLs:', {
+          portfolioUrl: candidate.portfolioUrl,
+          githubUrl: candidate.githubUrl
+        });
       } else if (candidateResponse.success && candidateResponse.candidate) {
         candidate = candidateResponse.candidate;
+        console.log('Candidate URLs (legacy):', {
+          portfolioUrl: candidate.portfolioUrl,
+          githubUrl: candidate.githubUrl
+        });
       }
       
       // Load portfolio analysis if available
