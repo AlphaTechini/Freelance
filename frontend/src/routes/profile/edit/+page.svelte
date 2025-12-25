@@ -197,12 +197,13 @@
                 university: profile.university
               });
             } else {
-              console.log('No candidate profile found or empty response');
+              console.log('No candidate profile found or empty response:', candidateResponse);
             }
           }
         } catch (roleError) {
-          console.log('No role-specific profile found or error loading:', roleError.message);
+          console.error('Error loading role-specific profile:', roleError);
           // This is normal for new users - they may not have role-specific profiles yet
+          // But log the full error for debugging
         }
         
         console.log('Final profile loaded:', profile);
@@ -309,6 +310,10 @@
         }
         if (!profile.position || profile.position.trim().length < 2) {
           error = 'Your role in company is required';
+          return;
+        }
+        if (!profile.industry || profile.industry.trim().length < 2) {
+          error = 'Industry is required';
           return;
         }
       }
@@ -482,35 +487,37 @@
           </div>
         {/if}
 
-        <!-- Profile Image -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Profile Image</h2>
-          <div class="flex items-center space-x-6">
-            <div class="relative">
-              {#if imagePreview}
-                <img src={imagePreview} alt="Profile" class="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700" />
-              {:else}
-                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-                  {profile.displayName?.charAt(0)?.toUpperCase() || '?'}
-                </div>
-              {/if}
-              {#if uploadingImage}
-                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
-                  <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                </div>
-              {/if}
-            </div>
-            <div class="flex-1">
-              <input type="file" accept="image/*" onchange={handleImageSelect} class="hidden" id="profile-image-input" />
-              <label for="profile-image-input">
-                <Button type="button" variant="secondary" size="sm" onclick={() => document.getElementById('profile-image-input').click()}>
-                  Choose Image
-                </Button>
-              </label>
-              <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">JPG, PNG or GIF. Max size 5MB.</p>
+        <!-- Profile Image (Candidates only) -->
+        {#if isCandidate}
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Profile Image</h2>
+            <div class="flex items-center space-x-6">
+              <div class="relative">
+                {#if imagePreview}
+                  <img src={imagePreview} alt="Profile" class="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700" />
+                {:else}
+                  <div class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                    {profile.displayName?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                {/if}
+                {#if uploadingImage}
+                  <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  </div>
+                {/if}
+              </div>
+              <div class="flex-1">
+                <input type="file" accept="image/*" onchange={handleImageSelect} class="hidden" id="profile-image-input" />
+                <label for="profile-image-input">
+                  <Button type="button" variant="secondary" size="sm" onclick={() => document.getElementById('profile-image-input').click()}>
+                    Choose Image
+                  </Button>
+                </label>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">JPG, PNG or GIF. Max size 5MB.</p>
+              </div>
             </div>
           </div>
-        </div>
+        {/if}
 
         <!-- Basic Information -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
@@ -535,8 +542,8 @@
               </div>
               
               <div>
-                <label for="industry" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Industry</label>
-                <Input id="industry" type="text" bind:value={profile.industry} placeholder="Technology, Finance, Healthcare, etc." />
+                <label for="industry" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Industry *</label>
+                <Input id="industry" type="text" bind:value={profile.industry} placeholder="Technology, Finance, Healthcare, etc." required />
               </div>
             {:else}
               <!-- Candidate-specific fields -->
@@ -603,58 +610,56 @@
           </div>
         {/if}
 
-        <!-- Skills & Technologies (Both recruiters and candidates can have skills) -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            {#if isCandidate}Skills & Technologies{:else}Skills & Expertise{/if}
-          </h2>
-          <div class="space-y-4">
-            {#if profile.skills.length > 0}
+        <!-- Skills & Technologies (Candidates only) -->
+        {#if isCandidate}
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Skills & Technologies</h2>
+            <div class="space-y-4">
+              {#if profile.skills.length > 0}
+                <div class="flex flex-wrap gap-2">
+                  {#each profile.skills as skill}
+                    <span class="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full text-sm">
+                      {skill}
+                      <button type="button" onclick={() => removeSkill(skill)} class="hover:text-purple-600 dark:hover:text-purple-400 ml-1">×</button>
+                    </span>
+                  {/each}
+                </div>
+              {/if}
+              
+              <div class="flex gap-2">
+                <div class="flex-1">
+                  <Input type="text" bind:value={newSkill} placeholder="Add a skill..." maxlength={30} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())} />
+                </div>
+                <Button type="button" variant="secondary" onclick={() => addSkill()}>
+                  <span class="flex items-center gap-1">+ Add</span>
+                </Button>
+              </div>
+              
+              <!-- Suggested skills -->
               <div class="flex flex-wrap gap-2">
-                {#each profile.skills as skill}
-                  <span class="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full text-sm">
-                    {skill}
-                    <button type="button" onclick={() => removeSkill(skill)} class="hover:text-purple-600 dark:hover:text-purple-400 ml-1">×</button>
-                  </span>
+                {#each suggestedSkills.filter(s => !profile.skills.includes(s)) as skill}
+                  <button type="button" onclick={() => addSkill(skill)} class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors">
+                    + {skill}
+                  </button>
                 {/each}
               </div>
-            {/if}
-            
-            <div class="flex gap-2">
-              <div class="flex-1">
-                <Input type="text" bind:value={newSkill} placeholder="Add a skill..." maxlength={30} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())} />
-              </div>
-              <Button type="button" variant="secondary" onclick={() => addSkill()}>
-                <span class="flex items-center gap-1">+ Add</span>
-              </Button>
-            </div>
-            
-            <!-- Suggested skills -->
-            <div class="flex flex-wrap gap-2">
-              {#each suggestedSkills.filter(s => !profile.skills.includes(s)) as skill}
-                <button type="button" onclick={() => addSkill(skill)} class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors">
-                  + {skill}
-                </button>
-              {/each}
             </div>
           </div>
-        </div>
 
-        <!-- Bio / Experience Summary -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            {#if isCandidate}Bio / Experience Summary{:else}Company / Role Description{/if}
-          </h2>
-          <textarea
-            id="bio"
-            bind:value={profile.bio}
-            placeholder={isCandidate ? "Tell us about yourself, your experience, and what you're looking for..." : "Describe your company, your role, and what kind of talent you're looking for..."}
-            maxlength={500}
-            rows="4"
-            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-          ></textarea>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{profile.bio?.length || 0}/500 characters</p>
-        </div>
+          <!-- Bio / Experience Summary (Candidates only) -->
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Bio / Experience Summary</h2>
+            <textarea
+              id="bio"
+              bind:value={profile.bio}
+              placeholder="Tell us about yourself, your experience, and what you're looking for..."
+              maxlength={500}
+              rows="4"
+              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+            ></textarea>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{profile.bio?.length || 0}/500 characters</p>
+          </div>
+        {/if}
 
         <!-- Availability (Candidate only) -->
         {#if isCandidate}
@@ -690,32 +695,34 @@
           </div>
         {/if}
 
-        <!-- Preferences -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Preferences</h2>
-          <div class="space-y-6">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Preferred Payment Tokens</label>
-              <div class="flex gap-3">
-                {#each availableTokens as token}
-                  <button type="button" onclick={() => toggleToken(token)} class="px-4 py-2 rounded-lg border-2 transition-colors {profile.preferences.preferredTokens.includes(token) ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}">
-                    {token}
-                  </button>
-                {/each}
+        <!-- Preferences (Candidates only) -->
+        {#if isCandidate}
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Preferences</h2>
+            <div class="space-y-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Preferred Payment Tokens</label>
+                <div class="flex gap-3">
+                  {#each availableTokens as token}
+                    <button type="button" onclick={() => toggleToken(token)} class="px-4 py-2 rounded-lg border-2 transition-colors {profile.preferences.preferredTokens.includes(token) ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300'}">
+                      {token}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+              <div class="space-y-3">
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" bind:checked={profile.preferences.notifications} class="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500" />
+                  <span class="text-sm text-gray-700 dark:text-gray-300">Enable in-app notifications</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" bind:checked={profile.preferences.emailNotifications} class="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500" />
+                  <span class="text-sm text-gray-700 dark:text-gray-300">Enable email notifications</span>
+                </label>
               </div>
             </div>
-            <div class="space-y-3">
-              <label class="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" bind:checked={profile.preferences.notifications} class="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500" />
-                <span class="text-sm text-gray-700 dark:text-gray-300">Enable in-app notifications</span>
-              </label>
-              <label class="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" bind:checked={profile.preferences.emailNotifications} class="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500" />
-                <span class="text-sm text-gray-700 dark:text-gray-300">Enable email notifications</span>
-              </label>
-            </div>
           </div>
-        </div>
+        {/if}
 
         <!-- Action Buttons -->
         <div class="flex gap-4 justify-between">
