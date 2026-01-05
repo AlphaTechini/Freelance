@@ -429,16 +429,8 @@ export default async function userRoutes(fastify, options) {
           },
           isPublished: { type: 'boolean' }
         }
-      },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            profile: { type: 'object' }
-          }
-        }
       }
+      // Remove response schema to allow full profile object to be returned
     },
     handler: async (request, reply) => {
       try {
@@ -576,16 +568,8 @@ export default async function userRoutes(fastify, options) {
     schema: {
       description: 'Get current user candidate profile',
       tags: ['users'],
-      security: [{ bearerAuth: [] }],
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            profile: { type: 'object' }
-          }
-        }
-      }
+      security: [{ bearerAuth: [] }]
+      // Remove response schema to allow full profile object to be returned
     },
     handler: async (request, reply) => {
       try {
@@ -679,16 +663,8 @@ export default async function userRoutes(fastify, options) {
           },
           isPublished: { type: 'boolean' }
         }
-      },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            profile: { type: 'object' }
-          }
-        }
       }
+      // Remove response schema to allow full profile object to be returned
     },
     handler: async (request, reply) => {
       try {
