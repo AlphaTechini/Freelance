@@ -15,6 +15,14 @@
   let portfolioAnalysis = $state(null);
   let analysisLoading = $state(false);
   
+  // Create a derived object that will be reactive when passed to children
+  let childProps = $derived({
+    candidate,
+    portfolioAnalysis,
+    analysisLoading,
+    handleReanalyze
+  });
+  
   onMount(async () => {
     await loadCandidateData();
   });
@@ -168,7 +176,7 @@
         </div>
       {/if}
       
-      {@render children({ candidate, portfolioAnalysis, analysisLoading, handleReanalyze })}
+      {@render children(childProps)}
     </div>
   </div>
 </div>

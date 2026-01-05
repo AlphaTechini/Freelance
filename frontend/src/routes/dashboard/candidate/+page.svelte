@@ -8,6 +8,12 @@
   
   let { candidate, portfolioAnalysis, analysisLoading, handleReanalyze } = $props();
   
+  // Debug: log when portfolioAnalysis changes
+  $effect(() => {
+    console.log('Dashboard portfolioAnalysis updated:', portfolioAnalysis);
+    console.log('Has scores:', portfolioAnalysis?.scores);
+  });
+  
   let earnings = $state(null);
   let earningsLoading = $state(true);
   
