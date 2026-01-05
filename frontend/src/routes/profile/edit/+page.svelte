@@ -151,6 +151,8 @@
             console.log('Loading candidate profile...');
             const candidateResponse = await apiService.getCandidateProfile();
             console.log('Candidate response:', candidateResponse);
+            console.log('Candidate response profile keys:', candidateResponse.profile ? Object.keys(candidateResponse.profile) : 'no profile');
+            console.log('Full candidate profile object:', JSON.stringify(candidateResponse.profile, null, 2));
             
             if (candidateResponse.success && candidateResponse.profile) {
               const candidateProfile = candidateResponse.profile;
@@ -380,6 +382,16 @@
         try {
           const candidateResponse = await apiService.put('/users/candidate-profile', candidateData);
           console.log('Candidate profile updated:', candidateResponse);
+          
+          // Verify the data was saved correctly
+          if (candidateResponse.success && candidateResponse.profile) {
+            console.log('Saved profile data verification:', {
+              portfolioUrl: candidateResponse.profile.portfolioUrl,
+              githubUrl: candidateResponse.profile.githubUrl,
+              major: candidateResponse.profile.major,
+              university: candidateResponse.profile.university
+            });
+          }
         } catch (err) {
           console.log('Candidate profile update failed, trying to create...', err.message);
           // If profile doesn't exist, create it
@@ -391,8 +403,19 @@
               bio: candidateData.bio || updateData.bio || '',
               skills: candidateData.skills.length > 0 ? candidateData.skills : updateData.skills || []
             };
+            console.log('Creating candidate profile with data:', createData);
             const createResponse = await apiService.post('/users/candidate-profile', createData);
             console.log('Candidate profile created:', createResponse);
+            
+            // Verify the data was saved correctly
+            if (createResponse.success && createResponse.profile) {
+              console.log('Created profile data verification:', {
+                portfolioUrl: createResponse.profile.portfolioUrl,
+                githubUrl: createResponse.profile.githubUrl,
+                major: createResponse.profile.major,
+                university: createResponse.profile.university
+              });
+            }
           } else {
             throw err;
           }

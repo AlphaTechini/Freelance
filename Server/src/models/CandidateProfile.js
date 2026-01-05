@@ -91,7 +91,7 @@ const candidateProfileSchema = new mongoose.Schema({
   // Availability
   availability: {
     type: String,
-    enum: ['Full-time', 'Part-time', 'Contract', 'Months', ''],
+    enum: ['Full-time', 'Part-time', 'Contract', '6 Months', '3 Months', 'Months', ''],
     default: ''
   },
   

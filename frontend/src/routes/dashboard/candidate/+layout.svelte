@@ -33,6 +33,7 @@
       // Load candidate profile
       const candidateResponse = await apiService.getCandidateProfile();
       console.log('Candidate profile response:', candidateResponse);
+      console.log('Candidate profile keys:', candidateResponse.profile ? Object.keys(candidateResponse.profile) : 'no profile');
       
       if (candidateResponse.success && candidateResponse.profile) {
         candidate = candidateResponse.profile;

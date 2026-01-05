@@ -412,7 +412,7 @@ export default async function userRoutes(fastify, options) {
           githubUrl: { type: 'string' },
           availability: { 
             type: 'string', 
-            enum: ['Full-time', 'Part-time', 'Contract', 'Months', ''] 
+            enum: ['Full-time', 'Part-time', 'Contract', '6 Months', '3 Months', 'Months', ''] 
           },
           workHistory: {
             type: 'array',
@@ -471,9 +471,18 @@ export default async function userRoutes(fastify, options) {
         
         await profile.save();
         
+        // Convert to plain object to ensure all fields are serialized
+        const profileData = profile.toObject();
+        
+        console.log('Candidate profile created:', {
+          profileId: profileData._id,
+          portfolioUrl: profileData.portfolioUrl,
+          githubUrl: profileData.githubUrl
+        });
+        
         return reply.code(200).send({
           success: true,
-          profile
+          profile: profileData
         });
       } catch (error) {
         console.error('Candidate profile creation error:', error);
@@ -597,17 +606,22 @@ export default async function userRoutes(fastify, options) {
           });
         }
         
+        // Convert to plain object to ensure all fields are serialized
+        const profileData = profile.toObject();
+        
         console.log('Candidate profile fetched:', {
-          profileId: profile._id,
-          portfolioUrl: profile.portfolioUrl,
-          githubUrl: profile.githubUrl,
-          bio: profile.bio?.substring(0, 50),
-          skills: profile.skills?.length
+          profileId: profileData._id,
+          portfolioUrl: profileData.portfolioUrl,
+          githubUrl: profileData.githubUrl,
+          bio: profileData.bio?.substring(0, 50),
+          skills: profileData.skills?.length,
+          major: profileData.major,
+          university: profileData.university
         });
         
         return reply.code(200).send({
           success: true,
-          profile
+          profile: profileData
         });
       } catch (error) {
         return reply.code(500).send({
@@ -648,7 +662,7 @@ export default async function userRoutes(fastify, options) {
           githubUrl: { type: 'string' },
           availability: { 
             type: 'string', 
-            enum: ['Full-time', 'Part-time', 'Contract', 'Months', ''] 
+            enum: ['Full-time', 'Part-time', 'Contract', '6 Months', '3 Months', 'Months', ''] 
           },
           workHistory: {
             type: 'array',
@@ -715,15 +729,20 @@ export default async function userRoutes(fastify, options) {
           });
         }
         
+        // Convert to plain object to ensure all fields are serialized
+        const profileData = profile.toObject();
+        
         console.log('Candidate profile updated:', {
-          profileId: profile._id,
-          portfolioUrl: profile.portfolioUrl,
-          githubUrl: profile.githubUrl
+          profileId: profileData._id,
+          portfolioUrl: profileData.portfolioUrl,
+          githubUrl: profileData.githubUrl,
+          major: profileData.major,
+          university: profileData.university
         });
         
         return reply.code(200).send({
           success: true,
-          profile
+          profile: profileData
         });
       } catch (error) {
         console.error('Candidate profile update error:', error);
