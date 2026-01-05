@@ -165,17 +165,15 @@ Fields:
 - Number of auto-shortlisted candidates  
 
 ## 7.2 Candidate Shortlisting
-Kiro AI evaluates all freelancers and ranks them.
+Kiro AI evaluates all freelancers and ranks them using AI-driven analysis.
 
-Match Score Formula:
-match_score =
-(skill_match * 0.35) +
-(experience_years_match * 0.20) +
-(portfolio_depth * 0.20) +
-(education_alignment * 0.10) +
-(github_activity * 0.10) +
-(availability_fit * 0.05)
-
+The AI determines match scores based on:
+- Skill alignment with job requirements
+- Years of experience relevance
+- Portfolio strength (AI-evaluated)
+- Education fit
+- GitHub activity and code quality
+- Availability match
 
 Each candidate card shows:
 - Name  

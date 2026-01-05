@@ -169,7 +169,7 @@ class WebScrapingService {
       const qualityMetrics = this.analyzePageQualityFromHtml($);
 
       return {
-        url: portfolioUrl,
+        url: portfolioUrl,  // Include URL for AI to visit directly
         title: basicInfo.title,
         description: basicInfo.description,
         technologies: basicInfo.technologies,
@@ -177,7 +177,8 @@ class WebScrapingService {
         qualityMetrics,
         hasDeployment: basicInfo.hasDeployment,
         projectLinks: basicInfo.projectLinks,
-        content: html.substring(0, 5000), // First 5KB for AI analysis
+        content: html.substring(0, 5000), // First 5KB of scraped content for AI analysis
+        scrapedVia: 'cheerio',  // Indicate scraping method
         analyzedAt: new Date()
       };
 

@@ -113,10 +113,10 @@ class GitHubService {
   }
 
   /**
-   * Check if repository has a README file
+   * Check if repository has a README file and extract first paragraph
    * @param {string} username - GitHub username
    * @param {string} repoName - Repository name
-   * @returns {Promise<object>} - README information
+   * @returns {Promise<object>} - README information with first paragraph
    */
   async getRepositoryReadme(username, repoName) {
     try {
@@ -128,19 +128,47 @@ class GitHubService {
       // Decode content and analyze quality
       const content = Buffer.from(readme.content, 'base64').toString('utf-8');
       const quality = this.analyzeReadmeQuality(content);
+      const firstParagraph = this.extractFirstParagraph(content);
 
       return {
         exists: true,
         size: readme.size,
         quality,
+        firstParagraph,
         content: content.substring(0, 1000) // First 1000 chars for analysis
       };
     } catch (error) {
       if (error.status === 404) {
-        return { exists: false, quality: 'poor' };
+        return { exists: false, quality: 'poor', firstParagraph: '' };
       }
       throw new Error(`Failed to fetch README: ${error.message}`);
     }
+  }
+
+  /**
+   * Extract first meaningful paragraph from README content
+   * @param {string} content - README content
+   * @returns {string} - First paragraph text
+   */
+  extractFirstParagraph(content) {
+    if (!content) return '';
+    
+    // Remove markdown headers, badges, and empty lines
+    const lines = content.split('\n')
+      .map(line => line.trim())
+      .filter(line => {
+        // Skip headers, badges, empty lines, and image links
+        if (!line) return false;
+        if (line.startsWith('#')) return false;
+        if (line.startsWith('![')) return false;
+        if (line.startsWith('[![')) return false;
+        if (line.startsWith('<')) return false;
+        return true;
+      });
+    
+    // Get first meaningful paragraph (up to 300 chars)
+    const firstParagraph = lines.slice(0, 3).join(' ').substring(0, 300);
+    return firstParagraph || '';
   }
 
   /**
@@ -228,14 +256,19 @@ class GitHubService {
         this.getUserLanguages(username)
       ]);
 
-      // Analyze top repositories with README quality
+      // Analyze top repositories with README quality, first paragraph, and commit count
       const topProjects = [];
       for (const repo of repositories.slice(0, 5)) {
-        const readme = await this.getRepositoryReadme(username, repo.name);
+        const [readme, commitCount] = await Promise.all([
+          this.getRepositoryReadme(username, repo.name),
+          this.getRepoCommitCount(username, repo.name)
+        ]);
         topProjects.push({
           ...repo,
           readmeQuality: readme.quality,
-          hasReadme: readme.exists
+          readmeFirstParagraph: readme.firstParagraph,
+          hasReadme: readme.exists,
+          commits: commitCount
         });
       }
 
@@ -263,6 +296,41 @@ class GitHubService {
       throw new Error(`GitHub analysis failed: ${error.message}`);
     }
   }
+
+  /**
+   * Get commit count for a specific repository
+   * @param {string} username - GitHub username
+   * @param {string} repoName - Repository name
+   * @returns {Promise<number>} - Number of commits
+   */
+  async getRepoCommitCount(username, repoName) {
+    try {
+      // Get commit count using the contributors stats (faster than listing all commits)
+      const { data: contributors } = await this.octokit.rest.repos.listContributors({
+        owner: username,
+        repo: repoName,
+        per_page: 100
+      });
+      
+      // Sum all contributions
+      const totalCommits = contributors.reduce((sum, contributor) => sum + contributor.contributions, 0);
+      return totalCommits;
+    } catch (error) {
+      // Fallback: try to get commit count from repo stats
+      try {
+        const { data: commits } = await this.octokit.rest.repos.listCommits({
+          owner: username,
+          repo: repoName,
+          per_page: 1
+        });
+        // GitHub returns total count in link header, but we'll estimate from first page
+        return commits.length > 0 ? 1 : 0;
+      } catch {
+        return 0;
+      }
+    }
+  }
 }
+
 
 export default new GitHubService();

@@ -4,10 +4,15 @@ This document outlines the external services, tokens, and configurations needed 
 
 ## 🔑 Required API Keys & Tokens
 
-### 1. GitHub Personal Access Token
-**Purpose:** Portfolio analysis, repository scanning, and code quality evaluation
+### 1. GitHub OAuth / Personal Access Token
+**Purpose:** Portfolio analysis, repository scanning (public + private repos with user auth)
 
-**How to get:**
+**How it works:**
+- Users can connect their GitHub account via the frontend app
+- This enables access to both public AND private repositories
+- Octokit fetches: repo name, description, README first paragraph, commit count
+
+**For Server-side analysis (fallback):**
 1. Go to [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
 2. Click "Generate new token (classic)"
 3. Set expiration (recommend 1 year)
@@ -19,19 +24,16 @@ This document outlines the external services, tokens, and configurations needed 
 **Environment Variable:** `GITHUB_TOKEN`
 **Location:** `Server/.env`
 
-### 2. InvokeLLM API Key (Visualyze.ai)
-**Purpose:** AI-powered portfolio analysis and improvement suggestions
+### 2. Gemini API Key (Google AI)
+**Purpose:** AI-powered portfolio analysis, improvement suggestions, and job matching
 
 **How to get:**
-1. Visit [Visualyze.ai](https://visualyze.ai)
-2. Sign up for an account
-3. Navigate to API settings
+1. Visit [Google AI Studio](https://aistudio.google.com/)
+2. Sign in with your Google account
+3. Navigate to API keys section
 4. Generate a new API key
 
-**Environment Variables:**
-- `INVOKELLM_API_KEY` - Your API key
-- `INVOKELLM_BASE_URL` - Base URL (already set to https://api.visualyze.ai)
-
+**Environment Variable:** `GEMINI_API_KEY`
 **Location:** `Server/.env`
 
 ### 3. MongoDB Database

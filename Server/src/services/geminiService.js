@@ -158,37 +158,59 @@ class GeminiService {
 
   /**
    * Build portfolio analysis prompt
+   * 
+   * Data sources:
+   * - Portfolio: Scraped via Cheerio (HTML content) + URL for AI to visit
+   * - GitHub: Fetched via Octokit (public/private repos with user auth)
    */
   buildPortfolioAnalysisPrompt(portfolioContent, githubData) {
+    // Build GitHub repos summary from Octokit data
+    const reposSummary = githubData.topProjects?.map(repo => 
+      `- ${repo.name}: ${repo.description || 'No description'} | README: ${repo.readmeFirstParagraph || 'N/A'} | Commits: ${repo.commits || 0}`
+    ).join('\n') || 'No repositories available';
+
     return `
-Analyze this developer's portfolio and GitHub profile for professional assessment:
+You are evaluating a developer's portfolio and GitHub profile. Analyze the data below and provide your professional assessment.
 
-PORTFOLIO CONTENT:
-${portfolioContent}
+PORTFOLIO URL (visit this for additional context):
+${portfolioContent.url || 'Not provided'}
 
-GITHUB DATA:
-- Repositories: ${githubData.repositories || 0}
-- Languages: ${githubData.languages?.join(', ') || 'None'}
-- Stars: ${githubData.stars || 0}
-- Commits: ${githubData.commits || 0}
+SCRAPED PORTFOLIO CONTENT (via Cheerio):
+${portfolioContent.content || portfolioContent || 'No content available'}
+
+GITHUB REPOSITORIES (fetched via Octokit - includes private repos if user connected):
+${reposSummary}
+
+GITHUB SUMMARY:
+- Total Repositories: ${githubData.repositories || 0}
+- Languages Used: ${githubData.languages?.join(', ') || 'None detected'}
+- Total Stars: ${githubData.stars || 0}
+- Recent Commits (6 months): ${githubData.commits || 0}
 - Last Activity: ${githubData.lastActivity || 'Unknown'}
 
-ANALYSIS REQUIREMENTS:
-1. Evaluate technical skills demonstrated
-2. Assess project complexity and quality
-3. Rate portfolio presentation and completeness
-4. Identify key strengths and areas for improvement
-5. Provide scores for: Code Quality (0-100), Project Depth (0-100), Portfolio Completeness (0-100)
+YOUR TASK:
+1. Visit the portfolio URL if provided to get additional context
+2. Evaluate the technical skills demonstrated across portfolio and GitHub
+3. Assess project complexity, code quality, and depth
+4. Rate portfolio presentation and completeness
+5. Identify key strengths and areas for improvement
 
-Return analysis in JSON format:
+SCORING GUIDELINES (you decide the scores based on your analysis):
+- Code Quality (0-100): Based on repo structure, README quality, commit patterns, code organization
+- Project Depth (0-100): Based on project complexity, features, real-world applicability
+- Portfolio Completeness (0-100): Based on presentation, content quality, professional appearance
+- Overall Score: Your weighted assessment of the developer's profile strength
+
+Return your analysis in this exact JSON format:
 {
   "codeQuality": number,
   "projectDepth": number,
   "portfolioCompleteness": number,
-  "keyStrengths": ["strength1", "strength2"],
-  "technicalSkills": ["skill1", "skill2"],
+  "overallScore": number,
+  "keyStrengths": ["strength1", "strength2", "strength3"],
+  "technicalSkills": ["skill1", "skill2", "skill3"],
   "projectComplexity": "basic|moderate|advanced",
-  "overallAssessment": "brief summary"
+  "overallAssessment": "2-3 sentence summary of the developer's profile"
 }
 `;
   }
