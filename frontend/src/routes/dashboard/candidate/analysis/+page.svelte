@@ -21,7 +21,6 @@
       loading = true;
       error = '';
       
-      // Load candidate profile first
       const candidateResponse = await apiService.getCandidateProfile();
       
       if (candidateResponse.success && candidateResponse.profile) {
@@ -35,7 +34,6 @@
         return;
       }
       
-      // Now load portfolio analysis
       await loadPortfolioAnalysis();
       
     } catch (err) {
@@ -49,21 +47,14 @@
   async function loadPortfolioAnalysis() {
     try {
       const candidateId = candidate?._id || candidate?.username || $authStore.user?.username;
-      if (!candidateId) {
-        console.warn('No candidate ID available');
-        return;
-      }
+      if (!candidateId) return;
       
-      console.log('Loading portfolio analysis for:', candidateId);
       const response = await apiService.getPortfolioAnalysis(candidateId);
-      console.log('Portfolio analysis response:', response);
       
       if (response.success && response.data) {
         portfolioAnalysis = response.data;
-        console.log('Analysis loaded:', portfolioAnalysis);
       } else if (response.success && response.analysis) {
         portfolioAnalysis = response.analysis;
-        console.log('Analysis loaded (legacy):', portfolioAnalysis);
       }
     } catch (err) {
       console.error('Failed to load portfolio analysis:', err);
@@ -77,26 +68,17 @@
       
       const candidateId = candidate?._id || candidate?.username || $authStore.user?.username;
       
-      console.log('Starting analysis for:', candidateId);
-      console.log('Portfolio URL:', candidate?.portfolioUrl);
-      console.log('GitHub URL:', candidate?.githubUrl);
-      
       const response = await apiService.analyzePortfolio(
         candidateId,
         candidate?.portfolioUrl || null,
         candidate?.githubUrl || null
       );
       
-      console.log('Analyze response:', response);
-      
       if (response.success && response.analysis) {
         portfolioAnalysis = response.analysis;
-        console.log('Direct analysis result:', portfolioAnalysis);
       } else if (response.success && response.data) {
         portfolioAnalysis = response.data;
-        console.log('Direct analysis result (data):', portfolioAnalysis);
       } else if (response.success) {
-        // Analysis started async, wait and reload
         await new Promise(resolve => setTimeout(resolve, 5000));
         await loadPortfolioAnalysis();
       } else {
@@ -110,7 +92,6 @@
     }
   }
   
-  // Radar chart data
   let chartData = $derived(portfolioAnalysis?.scores ? [
     { label: 'Overall', value: portfolioAnalysis.scores.overall || 0 },
     { label: 'Code Quality', value: portfolioAnalysis.scores.codeQuality || 0 },
@@ -131,6 +112,42 @@
     if (score >= 40) return 'bg-orange-500';
     return 'bg-red-500';
   }
+  
+  // Parse improvements from various formats
+  function parseImprovements(improvements) {
+    if (!improvements) return [];
+    
+    // If string, try to parse JSON
+    if (typeof improvements === 'string') {
+      try {
+        let cleaned = improvements.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        improvements = JSON.parse(cleaned);
+      } catch (e) {
+        return improvements.split('\n')
+          .map(line => line.trim())
+          .filter(line => line && !line.match(/^[\[\]{}"`]/) && line.length > 10)
+          .slice(0, 5);
+      }
+    }
+    
+    if (Array.isArray(improvements)) {
+      return improvements.slice(0, 5).map(item => {
+        if (typeof item === 'string') {
+          if (item.match(/^[\[\]{}",\s]*$/) || item.length < 10) return null;
+          const match = item.match(/"suggestion"\s*:\s*"([^"]+)"/);
+          if (match) return match[1];
+          return item.replace(/^[\d.)\s-]+/, '').trim();
+        }
+        if (item?.suggestion) return item.suggestion;
+        if (item?.text) return item.text;
+        return null;
+      }).filter(Boolean);
+    }
+    
+    return [];
+  }
+  
+  let parsedImprovements = $derived(parseImprovements(portfolioAnalysis?.improvements));
 </script>
 
 <svelte:head>
@@ -138,7 +155,6 @@
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8 max-w-4xl">
-  <!-- Back Button -->
   <button 
     onclick={() => goto('/dashboard/candidate')}
     class="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 mb-6 transition-colors"
@@ -159,22 +175,15 @@
       </div>
     </div>
   {:else}
-    <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <span class="text-purple-500">✨</span> AI Portfolio Analysis
           </h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-1">
-            AI-powered evaluation of your profile and portfolio
-          </p>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">AI-powered evaluation of your profile and portfolio</p>
         </div>
-        <Button 
-          variant="primary" 
-          onclick={handleReanalyze}
-          disabled={analysisLoading}
-        >
+        <Button variant="primary" onclick={handleReanalyze} disabled={analysisLoading}>
           <span class="flex items-center gap-2">
             <span class="text-purple-200">✨</span>
             {analysisLoading ? 'Analyzing...' : 'Re-analyze'}
@@ -182,30 +191,23 @@
         </Button>
       </div>
       
-      <!-- URLs Info -->
       {#if candidate}
         <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div class="flex flex-wrap gap-4 text-sm">
             {#if candidate.portfolioUrl}
               <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <span>🌐</span>
-                <a href={candidate.portfolioUrl} target="_blank" rel="noopener" class="text-purple-600 dark:text-purple-400 hover:underline">
-                  Portfolio
-                </a>
+                <a href={candidate.portfolioUrl} target="_blank" rel="noopener" class="text-purple-600 dark:text-purple-400 hover:underline">Portfolio</a>
               </div>
             {/if}
             {#if candidate.githubUrl}
               <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <span>📦</span>
-                <a href={candidate.githubUrl} target="_blank" rel="noopener" class="text-purple-600 dark:text-purple-400 hover:underline">
-                  GitHub
-                </a>
+                <a href={candidate.githubUrl} target="_blank" rel="noopener" class="text-purple-600 dark:text-purple-400 hover:underline">GitHub</a>
               </div>
             {/if}
             {#if !candidate.portfolioUrl && !candidate.githubUrl}
-              <p class="text-orange-600 dark:text-orange-400">
-                ⚠️ Add your GitHub or Portfolio URL in your profile to enable analysis
-              </p>
+              <p class="text-orange-600 dark:text-orange-400">⚠️ Add your GitHub or Portfolio URL in your profile to enable analysis</p>
             {/if}
           </div>
         </div>
@@ -213,37 +215,25 @@
     </div>
 
     {#if error}
-      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg mb-6">
-        {error}
-      </div>
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg mb-6">{error}</div>
     {/if}
 
-    <!-- Analysis Content -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
       {#if analysisLoading}
         <div class="flex items-center justify-center py-16">
           <div class="text-center">
             <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
             <p class="text-gray-600 dark:text-gray-400 text-lg">Analyzing your portfolio and GitHub...</p>
-            <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">This may take up to 30 seconds</p>
+            <p class="text-sm text-gray-500 mt-2">This may take up to 30 seconds</p>
           </div>
         </div>
       {:else if portfolioAnalysis?.scores}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <!-- Radar Chart -->
           <div class="flex justify-center items-center">
-            <RadarChart 
-              data={chartData}
-              width={320}
-              height={320}
-              fillColor="rgba(139, 92, 246, 0.3)"
-              strokeColor="#8b5cf6"
-            />
+            <RadarChart data={chartData} width={320} height={320} fillColor="rgba(139, 92, 246, 0.3)" strokeColor="#8b5cf6" />
           </div>
           
-          <!-- Score Metrics -->
           <div class="space-y-6">
-            <!-- Overall Score -->
             <div>
               <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
@@ -257,7 +247,6 @@
               </div>
             </div>
             
-            <!-- Code Quality -->
             <div>
               <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
@@ -271,7 +260,6 @@
               </div>
             </div>
             
-            <!-- Project Depth -->
             <div>
               <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
@@ -285,7 +273,6 @@
               </div>
             </div>
             
-            <!-- Portfolio Completeness -->
             <div>
               <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
@@ -301,35 +288,28 @@
           </div>
         </div>
 
-        <!-- AI Improvement Suggestions -->
-        {#if portfolioAnalysis.improvements && portfolioAnalysis.improvements.length > 0}
+        {#if parsedImprovements.length > 0}
           <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
               <span class="text-yellow-500">💡</span> AI Suggestions for Improvement
             </h3>
             <div class="space-y-4">
-              {#each portfolioAnalysis.improvements.slice(0, 5) as improvement, index}
+              {#each parsedImprovements as improvement, index}
                 <div class="flex gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <span class="flex-shrink-0 w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full flex items-center justify-center font-bold">
-                    {index + 1}
-                  </span>
-                  <p class="text-gray-700 dark:text-gray-300">{improvement.suggestion || improvement}</p>
+                  <span class="flex-shrink-0 w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full flex items-center justify-center font-bold">{index + 1}</span>
+                  <p class="text-gray-700 dark:text-gray-300">{improvement}</p>
                 </div>
               {/each}
             </div>
           </div>
         {/if}
 
-        <!-- Analysis Metadata -->
         {#if portfolioAnalysis.analyzedAt}
           <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <p class="text-sm text-gray-500 dark:text-gray-400 text-center">
-              Last analyzed: {new Date(portfolioAnalysis.analyzedAt).toLocaleString()}
-            </p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 text-center">Last analyzed: {new Date(portfolioAnalysis.analyzedAt).toLocaleString()}</p>
           </div>
         {/if}
       {:else}
-        <!-- No Analysis State -->
         <div class="text-center py-16">
           <div class="w-24 h-24 mx-auto mb-6 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
             <svg class="w-12 h-12 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -337,21 +317,13 @@
             </svg>
           </div>
           <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-3">No Analysis Available</h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-8 max-w-lg mx-auto">
-            Get AI-powered insights about your portfolio and GitHub profile. We'll analyze your code quality, project depth, and provide personalized improvement suggestions.
-          </p>
+          <p class="text-gray-600 dark:text-gray-400 mb-8 max-w-lg mx-auto">Get AI-powered insights about your portfolio and GitHub profile.</p>
           {#if !candidate?.portfolioUrl?.trim() && !candidate?.githubUrl?.trim()}
-            <p class="text-sm text-orange-600 dark:text-orange-400 mb-6">
-              ⚠️ Add your GitHub or Portfolio URL in your profile to enable analysis
-            </p>
-            <Button variant="secondary" onclick={() => goto('/profile/edit')}>
-              Complete Profile
-            </Button>
+            <p class="text-sm text-orange-600 dark:text-orange-400 mb-6">⚠️ Add your GitHub or Portfolio URL in your profile to enable analysis</p>
+            <Button variant="secondary" onclick={() => goto('/profile/edit')}>Complete Profile</Button>
           {:else}
             <Button variant="primary" onclick={handleReanalyze} disabled={analysisLoading}>
-              <span class="flex items-center gap-2">
-                <span>✨</span> Start Analysis
-              </span>
+              <span class="flex items-center gap-2"><span>✨</span> Start Analysis</span>
             </Button>
           {/if}
         </div>

@@ -5,7 +5,43 @@ import PortfolioAnalysis from '../models/PortfolioAnalysis.js';
 
 class PortfolioAnalyzer {
   constructor() {
-    this.analysisInProgress = new Set();
+    this.analysisInProgress = new Map(); // Changed to Map to store timestamps
+    this.ANALYSIS_TIMEOUT = 120000; // 2 minutes timeout
+  }
+  
+  /**
+   * Check if analysis is in progress (with timeout check)
+   */
+  isAnalysisInProgress(candidateId) {
+    if (!this.analysisInProgress.has(candidateId)) {
+      return false;
+    }
+    
+    const startTime = this.analysisInProgress.get(candidateId);
+    const elapsed = Date.now() - startTime;
+    
+    // If analysis has been running for more than timeout, consider it stale
+    if (elapsed > this.ANALYSIS_TIMEOUT) {
+      console.log(`Analysis for ${candidateId} timed out after ${elapsed}ms, clearing stale entry`);
+      this.analysisInProgress.delete(candidateId);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Mark analysis as started
+   */
+  markAnalysisStarted(candidateId) {
+    this.analysisInProgress.set(candidateId, Date.now());
+  }
+  
+  /**
+   * Mark analysis as completed
+   */
+  markAnalysisCompleted(candidateId) {
+    this.analysisInProgress.delete(candidateId);
   }
 
   /**
@@ -367,12 +403,12 @@ class PortfolioAnalyzer {
    * @returns {Promise<object>} - Analysis results
    */
   async analyzePortfolio(candidateId, portfolioUrl = null, githubUrl = null) {
-    // Check if analysis is already in progress
-    if (this.analysisInProgress.has(candidateId)) {
+    // Check if analysis is already in progress (with timeout check)
+    if (this.isAnalysisInProgress(candidateId)) {
       throw new Error('Analysis already in progress for this candidate');
     }
 
-    this.analysisInProgress.add(candidateId);
+    this.markAnalysisStarted(candidateId);
 
     try {
       console.log(`Starting portfolio analysis for candidate: ${candidateId}`);
@@ -492,7 +528,7 @@ class PortfolioAnalyzer {
 
       throw error;
     } finally {
-      this.analysisInProgress.delete(candidateId);
+      this.markAnalysisCompleted(candidateId);
     }
   }
 
@@ -666,15 +702,6 @@ class PortfolioAnalyzer {
    */
   async getAllAnalyses(candidateId) {
     return await PortfolioAnalysis.findAllForCandidate(candidateId);
-  }
-
-  /**
-   * Check if analysis is in progress
-   * @param {string} candidateId - Candidate identifier
-   * @returns {boolean} - Whether analysis is in progress
-   */
-  isAnalysisInProgress(candidateId) {
-    return this.analysisInProgress.has(candidateId);
   }
 }
 
