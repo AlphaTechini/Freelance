@@ -15,14 +15,6 @@
   let portfolioAnalysis = $state(null);
   let analysisLoading = $state(false);
   
-  // Create a derived object that will be reactive when passed to children
-  let childProps = $derived({
-    candidate,
-    portfolioAnalysis,
-    analysisLoading,
-    handleReanalyze
-  });
-  
   onMount(async () => {
     await loadCandidateData();
   });
@@ -41,7 +33,22 @@
       // Load candidate profile
       const candidateResponse = await apiService.getCandidateProfile();
       console.log('Candidate profile response:', candidateResponse);
+      console.log('Candidate response type:', typeof candidateResponse);
+      console.log('Candidate profile type:', typeof candidateResponse.profile);
       console.log('Candidate profile keys:', candidateResponse.profile ? Object.keys(candidateResponse.profile) : 'no profile');
+      console.log('Raw profile object:', candidateResponse.profile);
+      
+      // Try to access fields directly
+      if (candidateResponse.profile) {
+        console.log('Direct field access test:');
+        console.log('  - portfolioUrl:', candidateResponse.profile.portfolioUrl);
+        console.log('  - githubUrl:', candidateResponse.profile.githubUrl);
+        console.log('  - bio:', candidateResponse.profile.bio);
+        console.log('  - major:', candidateResponse.profile.major);
+        console.log('  - skills:', candidateResponse.profile.skills);
+        console.log('  - _id:', candidateResponse.profile._id);
+        console.log('  - userId:', candidateResponse.profile.userId);
+      }
       
       if (candidateResponse.success && candidateResponse.profile) {
         candidate = candidateResponse.profile;
@@ -176,7 +183,9 @@
         </div>
       {/if}
       
-      {@render children(childProps)}
+      {#key portfolioAnalysis}
+        {@render children({ candidate, portfolioAnalysis, analysisLoading, handleReanalyze })}
+      {/key}
     </div>
   </div>
 </div>

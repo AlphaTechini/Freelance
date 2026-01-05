@@ -6,7 +6,14 @@
   import RadarChart from '$lib/components/ui/RadarChart.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   
-  let { candidate, portfolioAnalysis, analysisLoading, handleReanalyze } = $props();
+  // In Svelte 5, snippet children receive props as a single object
+  let props = $props();
+  
+  // Extract the values - these will be reactive
+  let candidate = $derived(props.candidate);
+  let portfolioAnalysis = $derived(props.portfolioAnalysis);
+  let analysisLoading = $derived(props.analysisLoading);
+  let handleReanalyze = $derived(props.handleReanalyze);
   
   // Debug: log when portfolioAnalysis changes
   $effect(() => {

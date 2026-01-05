@@ -438,12 +438,18 @@ export default async function userRoutes(fastify, options) {
         const username = request.user.username;
         const walletAddress = request.user.walletAddress;
         
+        console.log('=== CANDIDATE PROFILE CREATE START ===');
+        console.log('User ID:', userId);
+        console.log('Username:', username);
+        console.log('Request body:', JSON.stringify(request.body, null, 2));
+        
         // Import CandidateProfile model
         const CandidateProfile = (await import('../models/CandidateProfile.js')).default;
         
         // Check if profile already exists
         const existingProfile = await CandidateProfile.findByUserId(userId);
         if (existingProfile) {
+          console.log('Profile already exists for user:', userId);
           return reply.code(400).send({
             success: false,
             error: {
@@ -463,18 +469,15 @@ export default async function userRoutes(fastify, options) {
         
         await profile.save();
         
-        // Convert to plain object to ensure all fields are serialized
-        const profileData = profile.toObject();
+        // Use lean query to get plain object
+        const savedProfile = await CandidateProfile.findById(profile._id).lean();
         
-        console.log('Candidate profile created:', {
-          profileId: profileData._id,
-          portfolioUrl: profileData.portfolioUrl,
-          githubUrl: profileData.githubUrl
-        });
+        console.log('=== CANDIDATE PROFILE CREATE SUCCESS ===');
+        console.log('Created profile:', JSON.stringify(savedProfile, null, 2));
         
         return reply.code(200).send({
           success: true,
-          profile: profileData
+          profile: savedProfile
         });
       } catch (error) {
         console.error('Candidate profile creation error:', error);
@@ -578,7 +581,7 @@ export default async function userRoutes(fastify, options) {
         // Import CandidateProfile model
         const CandidateProfile = (await import('../models/CandidateProfile.js')).default;
         
-        const profile = await CandidateProfile.findByUserId(userId).populate('userId', 'displayName email profileImage rating');
+        const profile = await CandidateProfile.findOne({ userId }).lean();
         
         if (!profile) {
           return reply.code(404).send({
@@ -590,17 +593,23 @@ export default async function userRoutes(fastify, options) {
           });
         }
         
-        // Convert to plain object to ensure all fields are serialized
-        const profileData = profile.toObject();
+        // With lean(), we get a plain JavaScript object directly
+        const profileData = profile;
         
-        console.log('Candidate profile fetched:', {
+        // Remove the populated userId object and keep just the ID for cleaner response
+        // But also include the populated user data separately if needed
+        const populatedUser = profileData.userId;
+        
+        console.log('Candidate profile fetched - RAW:', JSON.stringify(profileData, null, 2));
+        console.log('Candidate profile fetched - SUMMARY:', {
           profileId: profileData._id,
           portfolioUrl: profileData.portfolioUrl,
           githubUrl: profileData.githubUrl,
           bio: profileData.bio?.substring(0, 50),
           skills: profileData.skills?.length,
           major: profileData.major,
-          university: profileData.university
+          university: profileData.university,
+          hasPopulatedUser: !!populatedUser
         });
         
         return reply.code(200).send({
@@ -676,26 +685,33 @@ export default async function userRoutes(fastify, options) {
         // Prepare update data - remove empty strings for optional fields
         const updateData = { ...request.body };
         
-        console.log('Candidate profile update request:', {
-          userId,
-          portfolioUrl: updateData.portfolioUrl,
-          githubUrl: updateData.githubUrl,
-          skills: updateData.skills?.length,
-          bio: updateData.bio?.substring(0, 50)
-        });
+        console.log('=== CANDIDATE PROFILE UPDATE START ===');
+        console.log('User ID:', userId);
+        console.log('User ID type:', typeof userId);
+        console.log('Update data received:', JSON.stringify(updateData, null, 2));
         
         // Don't update educationLevel if it's empty (keep existing value)
         if (updateData.educationLevel === '') {
           delete updateData.educationLevel;
         }
         
+        // First, check if profile exists
+        const existingProfile = await CandidateProfile.findOne({ userId });
+        console.log('Existing profile found:', !!existingProfile);
+        if (existingProfile) {
+          console.log('Existing profile ID:', existingProfile._id);
+          console.log('Existing portfolioUrl:', existingProfile.portfolioUrl);
+          console.log('Existing githubUrl:', existingProfile.githubUrl);
+        }
+        
         const profile = await CandidateProfile.findOneAndUpdate(
           { userId },
           { $set: updateData },
           { new: true, runValidators: true }
-        ).populate('userId', 'displayName email profileImage rating');
+        ).lean();
         
         if (!profile) {
+          console.log('=== PROFILE NOT FOUND AFTER UPDATE ===');
           return reply.code(404).send({
             success: false,
             error: {
@@ -705,16 +721,16 @@ export default async function userRoutes(fastify, options) {
           });
         }
         
-        // Convert to plain object to ensure all fields are serialized
-        const profileData = profile.toObject();
+        // With lean(), we get a plain JavaScript object directly
+        const profileData = profile;
         
-        console.log('Candidate profile updated:', {
-          profileId: profileData._id,
-          portfolioUrl: profileData.portfolioUrl,
-          githubUrl: profileData.githubUrl,
-          major: profileData.major,
-          university: profileData.university
-        });
+        console.log('=== CANDIDATE PROFILE UPDATE SUCCESS ===');
+        console.log('Updated profile ID:', profileData._id);
+        console.log('Updated portfolioUrl:', profileData.portfolioUrl);
+        console.log('Updated githubUrl:', profileData.githubUrl);
+        console.log('Updated major:', profileData.major);
+        console.log('Updated university:', profileData.university);
+        console.log('Full updated profile:', JSON.stringify(profileData, null, 2));
         
         return reply.code(200).send({
           success: true,

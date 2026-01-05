@@ -152,7 +152,9 @@
             const candidateResponse = await apiService.getCandidateProfile();
             console.log('Candidate response:', candidateResponse);
             console.log('Candidate response profile keys:', candidateResponse.profile ? Object.keys(candidateResponse.profile) : 'no profile');
-            console.log('Full candidate profile object:', JSON.stringify(candidateResponse.profile, null, 2));
+            console.log('Full candidate profile object:', candidateResponse.profile);
+            console.log('Profile portfolioUrl directly:', candidateResponse.profile?.portfolioUrl);
+            console.log('Profile githubUrl directly:', candidateResponse.profile?.githubUrl);
             
             if (candidateResponse.success && candidateResponse.profile) {
               const candidateProfile = candidateResponse.profile;
