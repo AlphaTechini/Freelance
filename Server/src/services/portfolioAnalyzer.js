@@ -1,14 +1,16 @@
 import githubService from './githubService.js';
+import githubRepoMetricsService from './githubRepoMetricsService.js';
 import webScrapingService from './webScrapingService.js';
 import geminiService from './geminiService.js';
 import PortfolioAnalysis from '../models/PortfolioAnalysis.js';
+import { Octokit } from '@octokit/rest';
 
 class PortfolioAnalyzer {
   constructor() {
     this.analysisInProgress = new Map(); // Changed to Map to store timestamps
     this.ANALYSIS_TIMEOUT = 120000; // 2 minutes timeout
   }
-  
+
   /**
    * Check if analysis is in progress (with timeout check)
    */
@@ -16,27 +18,27 @@ class PortfolioAnalyzer {
     if (!this.analysisInProgress.has(candidateId)) {
       return false;
     }
-    
+
     const startTime = this.analysisInProgress.get(candidateId);
     const elapsed = Date.now() - startTime;
-    
+
     // If analysis has been running for more than timeout, consider it stale
     if (elapsed > this.ANALYSIS_TIMEOUT) {
       console.log(`Analysis for ${candidateId} timed out after ${elapsed}ms, clearing stale entry`);
       this.analysisInProgress.delete(candidateId);
       return false;
     }
-    
+
     return true;
   }
-  
+
   /**
    * Mark analysis as started
    */
   markAnalysisStarted(candidateId) {
     this.analysisInProgress.set(candidateId, Date.now());
   }
-  
+
   /**
    * Mark analysis as completed
    */
@@ -86,6 +88,88 @@ class PortfolioAnalyzer {
   }
 
   /**
+   * Fetch enhanced repo metrics using the detailed metrics service
+   * @param {string} username - GitHub username
+   * @param {string[]} repoNames - Array of repository names
+   * @returns {Promise<object|null>} - Enhanced metrics or null
+   */
+  async fetchEnhancedRepoMetrics(username, repoNames) {
+    try {
+      // Create Octokit instance (uses server token)
+      const octokit = new Octokit({
+        auth: process.env.GITHUB_TOKEN || undefined
+      });
+
+      // Use the new repo metrics service with scoring
+      const results = await githubRepoMetricsService.analyzeRepositoriesWithScoring(
+        octokit,
+        username,
+        repoNames,
+        { includeFull: false, includeSummary: true }
+      );
+
+      // Aggregate scores across repos
+      if (results && results.length > 0) {
+        const validResults = results.filter(r => !r.error);
+
+        if (validResults.length === 0) return null;
+
+        // Calculate aggregate scores
+        const avgScores = {
+          activity: 0,
+          collaboration: 0,
+          quality_signals: 0,
+          documentation: 0,
+          overall: 0
+        };
+
+        validResults.forEach(r => {
+          avgScores.activity += r.scores?.activity || 0;
+          avgScores.collaboration += r.scores?.collaboration || 0;
+          avgScores.quality_signals += r.scores?.quality_signals || 0;
+          avgScores.documentation += r.scores?.documentation || 0;
+          avgScores.overall += r.scores?.overall || 0;
+        });
+
+        const count = validResults.length;
+        Object.keys(avgScores).forEach(key => {
+          avgScores[key] = Math.round((avgScores[key] / count) * 10) / 10;
+        });
+
+        // Collect all risk flags
+        const allRiskFlags = validResults.flatMap(r => r.risk_flags || []);
+        const allStrengths = validResults.flatMap(r => r.strengths || []);
+
+        // Deduplicate and sort by severity
+        const uniqueRiskFlags = [];
+        const flagsSeen = new Set();
+        allRiskFlags.forEach(flag => {
+          const key = typeof flag === 'object' ? flag.flag : flag;
+          if (!flagsSeen.has(key)) {
+            flagsSeen.add(key);
+            uniqueRiskFlags.push(flag);
+          }
+        });
+
+        const uniqueStrengths = [...new Set(allStrengths)].slice(0, 5);
+
+        return {
+          reposAnalyzed: validResults.length,
+          aggregateScores: avgScores,
+          riskFlags: uniqueRiskFlags.slice(0, 5),
+          strengths: uniqueStrengths,
+          repoSummaries: validResults.slice(0, 5) // Keep top 5 for reference
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('Enhanced repo metrics failed:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * Calculate code quality score based on GitHub data
    * @param {object} githubData - GitHub analysis results
    * @returns {number} - Code quality score (0-100)
@@ -96,11 +180,11 @@ class PortfolioAnalyzer {
     // Repository count (max 20 points)
     score += Math.min(githubData.repositories * 2, 20);
 
-    // Stars received (max 15 points)
-    score += Math.min(githubData.stars * 0.5, 15);
+    // Stars received (max 15 points) - Note: per requirement, don't rely heavily on stars
+    score += Math.min(githubData.stars * 0.3, 10);
 
     // Language diversity (max 15 points)
-    score += Math.min(githubData.languages.length * 3, 15);
+    score += Math.min((githubData.languages?.length || 0) * 3, 15);
 
     // Recent activity (max 20 points)
     if (githubData.lastActivity) {
@@ -112,16 +196,46 @@ class PortfolioAnalyzer {
     }
 
     // README quality (max 15 points)
-    const readmeQualityScores = { excellent: 15, good: 10, poor: 5 };
-    const avgReadmeScore = githubData.topProjects.reduce((sum, project) => {
-      return sum + (readmeQualityScores[project.readmeQuality] || 0);
-    }, 0) / Math.max(githubData.topProjects.length, 1);
-    score += avgReadmeScore;
+    if (githubData.topProjects?.length > 0) {
+      const readmeQualityScores = { excellent: 15, good: 10, poor: 5 };
+      const avgReadmeScore = githubData.topProjects.reduce((sum, project) => {
+        return sum + (readmeQualityScores[project.readmeQuality] || 0);
+      }, 0) / Math.max(githubData.topProjects.length, 1);
+      score += avgReadmeScore;
+    }
 
     // Commit activity (max 15 points)
-    score += Math.min(githubData.commits * 0.3, 15);
+    score += Math.min((githubData.commits || 0) * 0.3, 15);
 
-    return Math.min(Math.round(score), 100);
+    // ENHANCED METRICS INTEGRATION
+    // If we have enhanced metrics from the detailed repo analysis, blend them in
+    if (githubData.enhancedMetrics?.aggregateScores) {
+      const enhanced = githubData.enhancedMetrics.aggregateScores;
+
+      // Convert 0-10 scores to 0-100 and blend (30% enhanced, 70% traditional)
+      const enhancedQualityScore = enhanced.quality_signals * 10;
+      score = Math.round(score * 0.7 + enhancedQualityScore * 0.3);
+
+      // Apply risk flag penalties
+      const riskFlags = githubData.enhancedMetrics.riskFlags || [];
+      const gamingFlags = riskFlags.filter(f =>
+        (typeof f === 'object' ? f.flag : f).startsWith('gaming:')
+      );
+
+      // Reduce score if gaming patterns detected
+      if (gamingFlags.length > 0) {
+        const highSeverity = gamingFlags.filter(f => f.severity === 'high').length;
+        const mediumSeverity = gamingFlags.filter(f => f.severity === 'medium').length;
+        score -= (highSeverity * 10 + mediumSeverity * 5);
+      }
+
+      // Boost score if strengths detected
+      const strengths = githubData.enhancedMetrics.strengths || [];
+      if (strengths.includes('tested_with_ci')) score += 5;
+      if (strengths.includes('code_quality_tools')) score += 3;
+    }
+
+    return Math.max(0, Math.min(Math.round(score), 100));
   }
 
   /**
@@ -136,7 +250,7 @@ class PortfolioAnalyzer {
     // Portfolio projects (max 25 points)
     if (portfolioData.projects) {
       score += Math.min(portfolioData.projects.length * 5, 25);
-      
+
       // Complexity bonus
       const complexProjects = portfolioData.projects.filter(p => p.complexity === 'complex').length;
       const moderateProjects = portfolioData.projects.filter(p => p.complexity === 'moderate').length;
@@ -152,7 +266,7 @@ class PortfolioAnalyzer {
 
     // Deployed projects (max 20 points)
     if (portfolioData.hasDeployment) score += 20;
-    const deployedProjects = portfolioData.projects ? 
+    const deployedProjects = portfolioData.projects ?
       portfolioData.projects.filter(p => p.deploymentUrl).length : 0;
     score += Math.min(deployedProjects * 5, 15);
 
@@ -179,7 +293,7 @@ class PortfolioAnalyzer {
     // Project documentation (max 25 points)
     if (portfolioData.projects && portfolioData.projects.length > 0) {
       score += 10;
-      const wellDocumentedProjects = portfolioData.projects.filter(p => 
+      const wellDocumentedProjects = portfolioData.projects.filter(p =>
         p.description && p.description.length > 30
       ).length;
       score += Math.min(wellDocumentedProjects * 3, 15);
@@ -232,7 +346,7 @@ class PortfolioAnalyzer {
 
     return improvements.slice(0, 5).map((item, index) => {
       let category = String(item.category || 'portfolio').toLowerCase().trim();
-      
+
       // Map to valid category
       if (!validCategories.includes(category)) {
         category = categoryMapping[category] || 'portfolio';
@@ -260,14 +374,14 @@ class PortfolioAnalyzer {
    */
   async generateImprovementSuggestions(scores, portfolioData, githubData) {
     let suggestions = [];
-    
+
     try {
       // Try Gemini AI first for AI-powered suggestions
       const aiSuggestions = await geminiService.generateImprovementSuggestions(
-        { portfolioData, githubData }, 
+        { portfolioData, githubData },
         scores
       );
-      
+
       if (aiSuggestions && aiSuggestions.length > 0) {
         suggestions = aiSuggestions;
       }
@@ -340,7 +454,7 @@ class PortfolioAnalyzer {
         });
       }
 
-      const complexProjects = portfolioData.projects ? 
+      const complexProjects = portfolioData.projects ?
         portfolioData.projects.filter(p => p.complexity === 'complex').length : 0;
       if (complexProjects === 0) {
         suggestions.push({
@@ -369,7 +483,7 @@ class PortfolioAnalyzer {
         });
       }
 
-      const projectsWithoutDescription = portfolioData.projects ? 
+      const projectsWithoutDescription = portfolioData.projects ?
         portfolioData.projects.filter(p => !p.description || p.description.length < 30).length : 0;
       if (projectsWithoutDescription > 1) {
         suggestions.push({
@@ -412,7 +526,7 @@ class PortfolioAnalyzer {
 
     try {
       console.log(`Starting portfolio analysis for candidate: ${candidateId}`);
-      
+
       // If no URLs provided, generate mock analysis
       if (!portfolioUrl && !githubUrl) {
         console.log('No URLs provided, generating mock analysis');
@@ -425,10 +539,33 @@ class PortfolioAnalyzer {
       }
 
       // Perform parallel analysis
-      const [portfolioData, githubData] = await Promise.all([
+      const [portfolioData, basicGithubData] = await Promise.all([
         portfolioUrl ? webScrapingService.analyzePortfolio(portfolioUrl) : null,
         githubUrl ? githubService.analyzeGitHubProfile(githubUrl) : null
       ]);
+
+      // Enhance GitHub data with detailed repo metrics if we have repos
+      let githubData = basicGithubData;
+      let enhancedRepoMetrics = null;
+
+      if (basicGithubData?.topProjects?.length > 0) {
+        try {
+          enhancedRepoMetrics = await this.fetchEnhancedRepoMetrics(
+            basicGithubData.username || githubService.parseGitHubUrl(githubUrl).username,
+            basicGithubData.topProjects.map(p => p.name).slice(0, 5) // Top 5 repos
+          );
+
+          // Merge enhanced metrics into githubData
+          if (enhancedRepoMetrics) {
+            githubData = {
+              ...basicGithubData,
+              enhancedMetrics: enhancedRepoMetrics
+            };
+          }
+        } catch (error) {
+          console.warn('Enhanced repo metrics failed, using basic data:', error.message);
+        }
+      }
 
       // Calculate scores using Gemini AI + traditional methods (Requirement 2.3)
       let scores = {
@@ -441,10 +578,10 @@ class PortfolioAnalyzer {
       try {
         if (portfolioData && portfolioData.content) {
           const aiAnalysis = await geminiService.analyzePortfolioContent(
-            portfolioData.content, 
+            portfolioData.content,
             githubData || {}
           );
-          
+
           // Blend AI scores with traditional scores (70% AI, 30% traditional)
           if (aiAnalysis.codeQuality) {
             scores.codeQuality = Math.round(aiAnalysis.codeQuality * 0.7 + scores.codeQuality * 0.3);
@@ -455,7 +592,7 @@ class PortfolioAnalyzer {
           if (aiAnalysis.portfolioCompleteness) {
             scores.portfolioCompleteness = Math.round(aiAnalysis.portfolioCompleteness * 0.7 + scores.portfolioCompleteness * 0.3);
           }
-          
+
           // Store AI insights
           portfolioData.aiInsights = {
             keyStrengths: aiAnalysis.keyStrengths || [],
@@ -547,9 +684,9 @@ class PortfolioAnalyzer {
    * @returns {Promise<object|null>} - Latest completed analysis or null
    */
   async getLatestCompletedAnalysis(candidateId) {
-    return await PortfolioAnalysis.findOne({ 
-      candidateId, 
-      status: 'completed' 
+    return await PortfolioAnalysis.findOne({
+      candidateId,
+      status: 'completed'
     }).sort({ analyzedAt: -1 });
   }
 
@@ -562,7 +699,7 @@ class PortfolioAnalyzer {
     try {
       // Try to get candidate profile for context
       const CandidateProfile = (await import('../models/CandidateProfile.js')).default;
-      const candidate = await CandidateProfile.findOne({ 
+      const candidate = await CandidateProfile.findOne({
         $or: [
           { _id: candidateId },
           { userId: candidateId },
@@ -577,11 +714,11 @@ class PortfolioAnalyzer {
       // Generate realistic scores based on profile
       const baseScore = Math.min(50 + (experience * 8) + (skills.length * 3), 85);
       const variance = 15; // Add some randomness
-      
+
       const scores = {
-        codeQuality: Math.max(30, Math.min(95, Math.round(baseScore + (Math.random() * variance - variance/2)))),
-        projectDepth: Math.max(25, Math.min(90, Math.round(baseScore + (Math.random() * variance - variance/2)))),
-        portfolioCompleteness: Math.max(20, Math.min(85, Math.round(baseScore + (Math.random() * variance - variance/2)))),
+        codeQuality: Math.max(30, Math.min(95, Math.round(baseScore + (Math.random() * variance - variance / 2)))),
+        projectDepth: Math.max(25, Math.min(90, Math.round(baseScore + (Math.random() * variance - variance / 2)))),
+        portfolioCompleteness: Math.max(20, Math.min(85, Math.round(baseScore + (Math.random() * variance - variance / 2)))),
         overall: 0
       };
       scores.overall = Math.round((scores.codeQuality + scores.projectDepth + scores.portfolioCompleteness) / 3);

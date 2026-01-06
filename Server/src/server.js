@@ -13,6 +13,7 @@ import gigRoutes from './routes/gigs.js';
 import priceRoutes from './routes/prices.js';
 import portfolioRoutes from './routes/portfolio.js';
 import paymentRoutes from './routes/payments.js';
+import githubRoutes from './routes/github.js';
 
 // Load environment variables
 dotenv.config();
@@ -150,6 +151,7 @@ async function registerRoutes() {
   await fastify.register(priceRoutes);
   await fastify.register(portfolioRoutes);
   await fastify.register(paymentRoutes);
+  await fastify.register(githubRoutes);
   await fastify.register(jobRoutes.default);
   await fastify.register(candidateRoutes.default);
 }

@@ -5,24 +5,42 @@ This document outlines the external services, tokens, and configurations needed 
 ## 🔑 Required API Keys & Tokens
 
 ### 1. GitHub OAuth / Personal Access Token
-**Purpose:** Portfolio analysis, repository scanning (public + private repos with user auth)
+**Purpose:** Portfolio analysis, repository scanning, anti-gaming detection, LLM-ready scoring
 
 **How it works:**
-- Users can connect their GitHub account via the frontend app
-- This enables access to both public AND private repositories
-- Octokit fetches: repo name, description, README first paragraph, commit count
+- Users can connect their GitHub account via OAuth for private repo access
+- Server-side token enables analysis of public repos without user auth
+- Enhanced metrics include: activity scores, collaboration signals, quality indicators, gaming detection
 
-**For Server-side analysis (fallback):**
+#### Option A: GitHub OAuth App (Recommended for Production)
+1. Go to [GitHub Settings > Developer settings > OAuth Apps](https://github.com/settings/developers)
+2. Click "New OAuth App"
+3. Fill in:
+   - **Application name:** TalentFind (or your app name)
+   - **Homepage URL:** Your frontend URL
+   - **Authorization callback URL:** `https://your-backend.com/auth/github/callback`
+4. After creation, note the **Client ID**
+5. Generate a new **Client Secret**
+
+**Environment Variables:** (in `Server/.env`)
+```
+GITHUB_CLIENT_ID=your_oauth_app_client_id
+GITHUB_CLIENT_SECRET=your_oauth_app_client_secret
+```
+
+#### Option B: Personal Access Token (For Server-side Analysis)
 1. Go to [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
 2. Click "Generate new token (classic)"
 3. Set expiration (recommend 1 year)
-4. Select these scopes:
+4. **Required scopes:**
    - `public_repo` - Access public repositories
    - `read:user` - Read user profile information
-   - `read:org` - Read organization membership (optional)
+   - `repo` - Full access to private repos (if analyzing user's own repos)
 
 **Environment Variable:** `GITHUB_TOKEN`
 **Location:** `Server/.env`
+
+> ⚠️ **Rate Limits:** Without a token, you get 60 requests/hour. With a token, you get 5,000 requests/hour.
 
 ### 2. Gemini API Key (Google AI)
 **Purpose:** AI-powered portfolio analysis, improvement suggestions, and job matching

@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { authStore } from '$lib/stores/auth.js';
   import { apiService } from '$lib/services/api.js';
@@ -11,9 +11,18 @@
   let error = $state('');
   let candidate = $state(null);
   let portfolioAnalysis = $state(null);
+  let statusMessage = $state('');
+  let pollInterval = null;
+  let lastAnalyzedAt = $state(null);
   
   onMount(async () => {
     await loadData();
+  });
+  
+  onDestroy(() => {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+    }
   });
   
   async function loadData() {
@@ -53,11 +62,59 @@
       
       if (response.success && response.data) {
         portfolioAnalysis = response.data;
+        lastAnalyzedAt = response.data.analyzedAt;
       } else if (response.success && response.analysis) {
         portfolioAnalysis = response.analysis;
+        lastAnalyzedAt = response.analysis.analyzedAt;
       }
     } catch (err) {
       console.error('Failed to load portfolio analysis:', err);
+    }
+  }
+  
+  function startPolling() {
+    if (pollInterval) clearInterval(pollInterval);
+    
+    let pollCount = 0;
+    const maxPolls = 24; // 2 minutes max (5s * 24)
+    
+    pollInterval = setInterval(async () => {
+      pollCount++;
+      statusMessage = `Analyzing... (${Math.min(pollCount * 5, 120)}s)`;
+      
+      try {
+        const candidateId = candidate?._id || candidate?.username || $authStore.user?.username;
+        const response = await apiService.getPortfolioAnalysis(candidateId);
+        
+        if (response.success && (response.data || response.analysis)) {
+          const newAnalysis = response.data || response.analysis;
+          const newAnalyzedAt = newAnalysis.analyzedAt;
+          
+          // Check if this is a new analysis (different timestamp)
+          if (newAnalyzedAt && newAnalyzedAt !== lastAnalyzedAt) {
+            portfolioAnalysis = newAnalysis;
+            lastAnalyzedAt = newAnalyzedAt;
+            stopPolling();
+            statusMessage = '';
+            analysisLoading = false;
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+      
+      if (pollCount >= maxPolls) {
+        stopPolling();
+        error = 'Analysis is taking longer than expected. Please try again later.';
+        analysisLoading = false;
+      }
+    }, 5000);
+  }
+  
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
     }
   }
   
@@ -65,6 +122,7 @@
     try {
       analysisLoading = true;
       error = '';
+      statusMessage = 'Starting analysis...';
       
       const candidateId = candidate?._id || candidate?.username || $authStore.user?.username;
       
@@ -75,20 +133,42 @@
       );
       
       if (response.success && response.analysis) {
+        // Direct result returned
         portfolioAnalysis = response.analysis;
+        lastAnalyzedAt = response.analysis.analyzedAt;
+        analysisLoading = false;
+        statusMessage = '';
       } else if (response.success && response.data) {
-        portfolioAnalysis = response.data;
+        if (response.data.status === 'analyzing' || response.data.message?.includes('started')) {
+          // Analysis started in background, start polling
+          statusMessage = 'Analysis in progress...';
+          startPolling();
+        } else {
+          portfolioAnalysis = response.data;
+          lastAnalyzedAt = response.data.analyzedAt;
+          analysisLoading = false;
+          statusMessage = '';
+        }
       } else if (response.success) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        await loadPortfolioAnalysis();
+        // Analysis started, poll for results
+        statusMessage = 'Analysis in progress...';
+        startPolling();
       } else {
-        error = response.message || 'Analysis failed';
+        error = response.message || response.error || 'Analysis failed';
+        analysisLoading = false;
+        statusMessage = '';
       }
     } catch (err) {
-      error = 'Failed to analyze portfolio: ' + err.message;
+      // Check if it's a 409 (analysis already in progress)
+      if (err.message?.includes('409') || err.message?.includes('already in progress')) {
+        statusMessage = 'Analysis already in progress, waiting for results...';
+        startPolling();
+      } else {
+        error = 'Failed to analyze portfolio: ' + err.message;
+        analysisLoading = false;
+        statusMessage = '';
+      }
       console.error('Analyze error:', err);
-    } finally {
-      analysisLoading = false;
     }
   }
   
@@ -117,7 +197,6 @@
   function parseImprovements(improvements) {
     if (!improvements) return [];
     
-    // If string, try to parse JSON
     if (typeof improvements === 'string') {
       try {
         let cleaned = improvements.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -223,8 +302,15 @@
         <div class="flex items-center justify-center py-16">
           <div class="text-center">
             <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p class="text-gray-600 dark:text-gray-400 text-lg">Analyzing your portfolio and GitHub...</p>
-            <p class="text-sm text-gray-500 mt-2">This may take up to 30 seconds</p>
+            <p class="text-gray-600 dark:text-gray-400 text-lg">{statusMessage || 'Analyzing your portfolio and GitHub...'}</p>
+            <p class="text-sm text-gray-500 mt-2">This may take up to 2 minutes</p>
+            <div class="mt-4 flex justify-center">
+              <div class="flex gap-1">
+                <div class="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                <div class="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                <div class="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+              </div>
+            </div>
           </div>
         </div>
       {:else if portfolioAnalysis?.scores}
