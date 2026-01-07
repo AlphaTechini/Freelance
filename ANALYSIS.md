@@ -10,6 +10,7 @@ A visual guide to how candidate GitHub profiles are analyzed and scored.
 flowchart TD
     subgraph Input
         A[GitHub URL] --> B[Parse Username]
+        A2[Portfolio URL] --> B2[Web Scraping]
     end
     
     subgraph "Data Collection"
@@ -17,6 +18,7 @@ flowchart TD
         B --> D[Detailed Metrics<br/>githubRepoMetricsService]
         C --> E[Top 5 Repos]
         E --> D
+        B2 --> F2[Portfolio Analysis<br/>webScrapingService]
     end
     
     subgraph "Scoring Engine"
@@ -24,6 +26,7 @@ flowchart TD
         D --> G[Collaboration Score<br/>0-10]
         D --> H[Quality Score<br/>0-10]
         D --> I[Documentation Score<br/>0-10]
+        F2 --> W[Portfolio Website Score<br/>0-100]
     end
     
     subgraph "Risk Detection"
@@ -34,9 +37,11 @@ flowchart TD
     end
     
     subgraph Output
-        F & G & H & I --> M[Overall Score]
+        F & G & H & I --> M[GitHub Score]
+        M --> O2[Overall Score]
+        W --> O2
         L --> N[LLM Summary]
-        M --> N
+        O2 --> N
         N --> O[Portfolio Analysis]
     end
     
@@ -44,6 +49,7 @@ flowchart TD
     style G fill:#60a5fa
     style H fill:#f472b6
     style I fill:#facc15
+    style W fill:#a78bfa
     style L fill:#f87171
 ```
 
@@ -89,6 +95,28 @@ flowchart TD
 | Has usage section | +1 |
 | Has license | +2 |
 | 5+ releases | +2 |
+
+### Portfolio Website Score (0-100)
+
+| Factor | Points |
+|--------|--------|
+| **Structure & Content** | max 30 |
+| Proper title | +5 |
+| Description/about section | +5 |
+| Word count > 500 | +10 |
+| 5+ headings | +10 |
+| **Visual Presentation** | max 25 |
+| 5+ images | +10 |
+| 4+ sections | +10 |
+| 10+ navigation links | +5 |
+| **Technical Quality** | max 25 |
+| Viewport meta (responsive) | +10 |
+| 8+ meta tags | +10 |
+| High quality score | +5 |
+| **Projects Showcase** | max 20 |
+| 5+ projects listed | +10 |
+| Projects with descriptions | +5 |
+| Has live demos/deployment | +5 |
 
 ---
 

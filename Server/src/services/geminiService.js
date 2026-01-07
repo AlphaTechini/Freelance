@@ -1,12 +1,27 @@
 /**
  * Gemini AI Service for AI-powered text analysis and generation
- * Using Google Gemini API
+ * Using Google GenAI SDK with gemini-3-flash-preview which has built-in web browsing
  */
+
+import { GoogleGenAI } from '@google/genai';
 
 class GeminiService {
   constructor() {
     this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
-    this.model = 'gemini-2.5-flash';
+    this.model = 'gemini-3-flash-preview'; // Model with built-in web browsing capability
+    this.legacyModel = 'gemini-2.5-flash'; // Fallback model
+    this.genAI = null; // Lazy-initialized SDK instance
+  }
+
+  /**
+   * Get or initialize the Google GenAI SDK instance
+   * @returns {GoogleGenAI} SDK instance
+   */
+  getGenAI() {
+    if (!this.genAI && this.apiKey) {
+      this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
+    }
+    return this.genAI;
   }
 
   get apiKey() {
@@ -22,7 +37,7 @@ class GeminiService {
   async analyzePortfolioContent(portfolioContent, githubData) {
     try {
       const prompt = this.buildPortfolioAnalysisPrompt(portfolioContent, githubData);
-      
+
       const response = await this.invokeTextAnalysis({
         prompt,
         task: 'portfolio_analysis',
@@ -38,6 +53,468 @@ class GeminiService {
   }
 
   /**
+   * Analyze portfolio website using Gemini 3 Flash with built-in web browsing
+   * This model can directly visit and analyze URLs without explicit search grounding
+   * @param {string} portfolioUrl - Portfolio website URL to analyze
+   * @returns {Promise<object>} - Portfolio website analysis results
+   */
+  async analyzePortfolioWebsiteWithSearch(portfolioUrl) {
+    try {
+      if (!portfolioUrl) {
+        throw new Error('Portfolio URL is required');
+      }
+
+      const genAI = this.getGenAI();
+      if (!genAI) {
+        throw new Error('Gemini API key not configured');
+      }
+
+      // Build prompt for portfolio analysis - Gemini 3 can browse directly
+      const prompt = this.buildDirectBrowsePortfolioPrompt(portfolioUrl);
+
+      // Use Gemini 3 Flash Preview with built-in web browsing
+      const response = await genAI.models.generateContent({
+        model: this.model,
+        contents: prompt
+      });
+
+      const responseText = response.text;
+
+      // Check if we got a valid response
+      if (responseText && responseText.trim().length > 50) {
+        const analysis = this.parsePortfolioWebsiteResponse({ text: responseText });
+
+        return {
+          ...analysis,
+          sources: [], // Gemini 3 doesn't provide explicit grounding metadata like 2.5
+          usedSearchGrounding: true,
+          usedDirectBrowsing: true
+        };
+      }
+
+      throw new Error('Empty response from Gemini 3');
+    } catch (error) {
+      console.error('Gemini 3 portfolio website analysis failed:', error);
+      // Fall back to regular analysis without web browsing
+      console.log('Falling back to regular analysis...');
+      return this.analyzePortfolioWebsite(portfolioUrl);
+    }
+  }
+
+  /**
+   * Build prompt for direct website browsing with Gemini 3 Flash
+   * @param {string} portfolioUrl - Portfolio URL
+   * @returns {string} - Prompt for website analysis
+   */
+  buildDirectBrowsePortfolioPrompt(portfolioUrl) {
+    return `Please visit and analyze this developer portfolio website: ${portfolioUrl}
+
+Look at the website and evaluate it as an experienced tech recruiter would when screening candidates for software engineering positions.
+
+After reviewing the website, provide your analysis in this EXACT JSON format:
+{
+  "scores": {
+    "specializationClarity": number (0-100),
+    "experienceShowcase": number (0-100),
+    "projectsDisplay": number (0-100),
+    "callToActions": number (0-100),
+    "designQuality": number (0-100),
+    "completeness": number (0-100),
+    "overall": number (0-100, weighted average)
+  },
+  "firstImpression": "One sentence first impression as a recruiter",
+  "strengths": ["strength1", "strength2", "strength3"],
+  "weaknesses": ["weakness1", "weakness2"],
+  "suggestions": [
+    "Improvement 1",
+    "Improvement 2",
+    "Improvement 3"
+  ],
+  "canAccessWebsite": true or false,
+  "llmAssessment": "2-3 sentence overall assessment"
+}
+
+SCORING CRITERIA:
+- specializationClarity: Does it clearly state what the developer specializes in?
+- experienceShowcase: How well is work experience presented?
+- projectsDisplay: Are projects showcased with descriptions and technologies?
+- callToActions: Are there contact options, hire me buttons, or social links?
+- designQuality: How professional and modern is the design?
+- completeness: Does it have about, skills, projects, and contact sections?
+
+If you cannot access the website, set canAccessWebsite to false.`;
+  }
+
+  /**
+   * Build a search-grounded prompt that explicitly instructs Gemini to search and visit the URL
+   * @param {string} portfolioUrl - Portfolio URL
+   * @returns {string} - Search-focused prompt
+   */
+  buildSearchGroundedPortfolioPrompt(portfolioUrl) {
+    return `Search the web and find information about this developer portfolio website: ${portfolioUrl}
+
+Use Google Search to visit and analyze the portfolio at: ${portfolioUrl}
+
+After searching and finding information about this website, evaluate it as an experienced tech recruiter would when screening candidates for software engineering positions.
+
+EVALUATION CRITERIA (Score each 0-100):
+
+1. **Specialization Clarity**: Does it clearly state what the developer specializes in?
+2. **Experience Showcase**: How well is work experience presented?
+3. **Projects Display**: Are projects showcased with descriptions and technologies?
+4. **Call-to-Actions**: Are there contact options, hire me buttons, or social links?
+5. **Design Quality**: How professional and modern is the design?
+6. **Completeness**: Does it have about, skills, projects, and contact sections?
+
+Return your analysis in this EXACT JSON format:
+{
+  "scores": {
+    "specializationClarity": number (0-100),
+    "experienceShowcase": number (0-100),
+    "projectsDisplay": number (0-100),
+    "callToActions": number (0-100),
+    "designQuality": number (0-100),
+    "completeness": number (0-100),
+    "overall": number (0-100, weighted average)
+  },
+  "firstImpression": "One sentence first impression as a recruiter",
+  "strengths": ["strength1", "strength2", "strength3"],
+  "weaknesses": ["weakness1", "weakness2"],
+  "suggestions": [
+    "Improvement 1",
+    "Improvement 2",
+    "Improvement 3"
+  ],
+  "canAccessWebsite": true or false,
+  "llmAssessment": "2-3 sentence overall assessment"
+}
+
+If you cannot access or find the website, set canAccessWebsite to false.`;
+  }
+
+  /**
+   * Analyze portfolio website using LLM with recruiter-focused evaluation
+   * This is a dedicated analysis of just the portfolio website URL (without search grounding)
+   * @param {string} portfolioUrl - Portfolio website URL to analyze
+   * @returns {Promise<object>} - Portfolio website analysis results
+   */
+  async analyzePortfolioWebsite(portfolioUrl) {
+    try {
+      if (!portfolioUrl) {
+        throw new Error('Portfolio URL is required');
+      }
+
+      const prompt = this.buildPortfolioWebsitePrompt(portfolioUrl);
+
+      const response = await this.invokeTextAnalysis({
+        prompt,
+        task: 'portfolio_website_analysis',
+        maxTokens: 1500,
+        temperature: 0.3
+      });
+
+      return {
+        ...this.parsePortfolioWebsiteResponse(response),
+        sources: [],
+        usedSearchGrounding: false
+      };
+    } catch (error) {
+      console.error('Gemini portfolio website analysis failed:', error);
+      throw new Error(`Portfolio website analysis failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Analyze portfolio website using LLM with SCRAPED content
+   * This method receives pre-scraped website content for analysis
+   * @param {object} scrapedContent - Scraped website content
+   * @param {string} scrapedContent.url - Original URL
+   * @param {string} scrapedContent.title - Page title
+   * @param {string} scrapedContent.h1 - Main heading
+   * @param {string} scrapedContent.bodyText - Extracted text content
+   * @param {string} scrapedContent.paragraphs - Paragraph text
+   * @param {string} scrapedContent.links - Navigation links
+   * @returns {Promise<object>} - Portfolio website analysis results
+   */
+  async analyzePortfolioWebsiteWithContent(scrapedContent) {
+    try {
+      if (!scrapedContent || !scrapedContent.url) {
+        throw new Error('Scraped content with URL is required');
+      }
+
+      const prompt = this.buildPortfolioWebsitePromptWithContent(scrapedContent);
+
+      const response = await this.invokeTextAnalysis({
+        prompt,
+        task: 'portfolio_website_analysis',
+        maxTokens: 1500,
+        temperature: 0.3
+      });
+
+      return this.parsePortfolioWebsiteResponse(response);
+    } catch (error) {
+      console.error('Gemini portfolio website analysis failed:', error);
+      throw new Error(`Portfolio website analysis failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Build prompt for LLM to analyze portfolio website using scraped content
+   * @param {object} scrapedContent - Scraped website content
+   * @returns {string} - Prompt for LLM
+   */
+  buildPortfolioWebsitePromptWithContent(scrapedContent) {
+    return `
+You are an experienced tech recruiter evaluating a developer's portfolio website. Analyze the following scraped website content as if you were screening a candidate for a software engineering position.
+
+PORTFOLIO URL: ${scrapedContent.url}
+
+PAGE TITLE: ${scrapedContent.title || 'Not found'}
+
+MAIN HEADING (H1): ${scrapedContent.h1 || 'Not found'}
+
+SECTION HEADINGS (H2):
+${scrapedContent.headings?.join('\n') || 'None found'}
+
+NAVIGATION/LINKS:
+${scrapedContent.links || 'None found'}
+
+PAGE CONTENT:
+${scrapedContent.bodyText || scrapedContent.paragraphs || 'No content extracted'}
+
+EVALUATION CRITERIA (Score each 0-100):
+
+1. **Specialization Clarity**: Does the content immediately tell you what the developer specializes in? Is there a clear headline/tagline?
+
+2. **Experience Showcase**: Is work experience presented? Are there company names, roles, achievements mentioned?
+
+3. **Projects Display**: Are projects mentioned? Look for project names, descriptions, technologies used.
+
+4. **Call-to-Actions**: Are there CTAs like contact info, hire me, email, social links?
+
+5. **Design Quality**: Based on the structure and content organization, how professional does the site appear?
+
+6. **Completeness**: Does it have about, skills, projects, contact sections?
+
+Return your analysis in this EXACT JSON format:
+{
+  "scores": {
+    "specializationClarity": number (0-100),
+    "experienceShowcase": number (0-100),
+    "projectsDisplay": number (0-100),
+    "callToActions": number (0-100),
+    "designQuality": number (0-100),
+    "completeness": number (0-100),
+    "overall": number (0-100, weighted average)
+  },
+  "firstImpression": "One sentence first impression as a recruiter",
+  "strengths": ["strength1", "strength2", "strength3"],
+  "weaknesses": ["weakness1", "weakness2"],
+  "suggestions": [
+    "Specific actionable improvement 1",
+    "Specific actionable improvement 2",
+    "Specific actionable improvement 3",
+    "Specific actionable improvement 4",
+    "Specific actionable improvement 5"
+  ],
+  "canAccessWebsite": true,
+  "llmAssessment": "2-3 sentence overall assessment from a recruiter perspective"
+}
+`;
+  }
+
+  /**
+   * Build prompt for LLM to analyze portfolio website from recruiter perspective
+   * @param {string} portfolioUrl - Portfolio URL
+   * @returns {string} - Prompt for LLM
+   */
+  buildPortfolioWebsitePrompt(portfolioUrl) {
+    return `
+You are an experienced tech recruiter evaluating a developer's portfolio website. Visit this portfolio URL and analyze it like you would when screening candidates for a software engineering position.
+
+PORTFOLIO URL TO VISIT AND ANALYZE:
+${portfolioUrl}
+
+EVALUATION CRITERIA (Score each 0-100):
+
+1. **Specialization Clarity**: Does the portfolio immediately tell you what the developer specializes in? Is there a clear headline/tagline? Can you understand their focus within 5 seconds?
+
+2. **Experience Showcase**: How well is previous work experience presented? Are there company names, roles, durations, and achievements? Is the career progression clear?
+
+3. **Projects Display**: Are projects showcased effectively? For each project, is there:
+   - Clear title and description
+   - Technologies used
+   - Problem solved / impact made
+   - Screenshots or demos
+   - Links to live site or repo
+
+4. **Call-to-Actions**: Are there clear CTAs like:
+   - Contact button/form
+   - "Hire Me" or "Available for work"
+   - Download resume option
+   - Social/LinkedIn links
+   - Email address visible
+
+5. **Design Quality**: How professional and modern is the design?
+   - Is it visually appealing?
+   - Is navigation intuitive?
+   - Is it mobile-responsive?
+   - Does it look up-to-date (not from 2010)?
+
+6. **Completeness**: Is the portfolio comprehensive?
+   - About/Bio section
+   - Skills section
+   - Projects section
+   - Contact section
+   - Professional photo (optional but nice)
+
+Return your analysis in this EXACT JSON format:
+{
+  "scores": {
+    "specializationClarity": number (0-100),
+    "experienceShowcase": number (0-100),
+    "projectsDisplay": number (0-100),
+    "callToActions": number (0-100),
+    "designQuality": number (0-100),
+    "completeness": number (0-100),
+    "overall": number (0-100, weighted average)
+  },
+  "firstImpression": "One sentence describing your first impression as a recruiter",
+  "strengths": ["strength1", "strength2", "strength3"],
+  "weaknesses": ["weakness1", "weakness2"],
+  "suggestions": [
+    "Specific actionable improvement 1",
+    "Specific actionable improvement 2",
+    "Specific actionable improvement 3",
+    "Specific actionable improvement 4",
+    "Specific actionable improvement 5"
+  ],
+  "canAccessWebsite": true/false,
+  "llmAssessment": "2-3 sentence overall assessment of this portfolio from a recruiter's perspective"
+}
+
+If you CANNOT access the website, set canAccessWebsite to false and return default scores of 0 with an explanation in llmAssessment.
+`;
+  }
+
+  /**
+   * Parse portfolio website analysis response
+   * @param {object} response - LLM response
+   * @returns {object} - Parsed analysis
+   */
+  parsePortfolioWebsiteResponse(response) {
+    try {
+      let content = response.text || response.content || '';
+
+      // Strip code block markers (```json, ```js, ```, etc.)
+      content = content.replace(/```(?:json|js|javascript)?\n?/g, '').trim();
+
+      // Try to extract JSON from the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+
+        // Ensure scores object exists with all fields
+        const scores = {
+          specializationClarity: parsed.scores?.specializationClarity || 0,
+          experienceShowcase: parsed.scores?.experienceShowcase || 0,
+          projectsDisplay: parsed.scores?.projectsDisplay || 0,
+          callToActions: parsed.scores?.callToActions || 0,
+          designQuality: parsed.scores?.designQuality || 0,
+          completeness: parsed.scores?.completeness || 0,
+          overall: parsed.scores?.overall || 0
+        };
+
+        // Calculate overall if not provided
+        if (!scores.overall) {
+          const sum = scores.specializationClarity + scores.experienceShowcase +
+            scores.projectsDisplay + scores.callToActions +
+            scores.designQuality + scores.completeness;
+          scores.overall = Math.round(sum / 6);
+        }
+
+        return {
+          scores,
+          firstImpression: parsed.firstImpression || '',
+          strengths: parsed.strengths || [],
+          weaknesses: parsed.weaknesses || [],
+          suggestions: parsed.suggestions || [],
+          canAccessWebsite: parsed.canAccessWebsite !== false,
+          llmAssessment: parsed.llmAssessment || ''
+        };
+      }
+
+      // Fallback if JSON parsing fails
+      return {
+        scores: {
+          specializationClarity: 0,
+          experienceShowcase: 0,
+          projectsDisplay: 0,
+          callToActions: 0,
+          designQuality: 0,
+          completeness: 0,
+          overall: 0
+        },
+        firstImpression: '',
+        strengths: [],
+        weaknesses: [],
+        suggestions: [],
+        canAccessWebsite: false,
+        llmAssessment: 'Failed to parse portfolio analysis response: ' + content.substring(0, 200)
+      };
+    } catch (error) {
+      console.error('Failed to parse portfolio website response:', error);
+      return {
+        scores: {
+          specializationClarity: 0,
+          experienceShowcase: 0,
+          projectsDisplay: 0,
+          callToActions: 0,
+          designQuality: 0,
+          completeness: 0,
+          overall: 0
+        },
+        firstImpression: '',
+        strengths: [],
+        weaknesses: [],
+        suggestions: [],
+        canAccessWebsite: false,
+        llmAssessment: 'Error parsing response: ' + error.message
+      };
+    }
+  }
+
+  /**
+   * Extract sources from Google Search grounding metadata
+   * @param {object} response - Gemini SDK response object
+   * @returns {Array} - Array of source objects with title and uri
+   */
+  extractGroundingSources(response) {
+    const sources = [];
+
+    try {
+      const candidate = response.candidates?.[0];
+      const groundingMetadata = candidate?.groundingMetadata;
+
+      if (groundingMetadata?.groundingChunks) {
+        groundingMetadata.groundingChunks.forEach((chunk, index) => {
+          if (chunk.web) {
+            sources.push({
+              index: index + 1,
+              title: chunk.web.title || 'Unknown',
+              uri: chunk.web.uri || ''
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to extract grounding sources:', error.message);
+    }
+
+    return sources;
+  }
+
+  /**
    * Generate improvement suggestions using InvokeLLM
    * @param {object} analysisData - Portfolio and GitHub analysis data
    * @param {object} scores - Calculated scores
@@ -46,7 +523,7 @@ class GeminiService {
   async generateImprovementSuggestions(analysisData, scores) {
     try {
       const prompt = this.buildImprovementPrompt(analysisData, scores);
-      
+
       const response = await this.invokeTextAnalysis({
         prompt,
         task: 'improvement_suggestions',
@@ -70,7 +547,7 @@ class GeminiService {
   async calculateJobMatch(candidateProfile, jobPosting) {
     try {
       const prompt = this.buildJobMatchPrompt(candidateProfile, jobPosting);
-      
+
       const response = await this.invokeTextAnalysis({
         prompt,
         task: 'job_matching',
@@ -95,7 +572,7 @@ class GeminiService {
   async generateMatchExplanation(candidateProfile, jobPosting, matchScore) {
     try {
       const prompt = this.buildMatchExplanationPrompt(candidateProfile, jobPosting, matchScore);
-      
+
       const response = await this.invokeTextAnalysis({
         prompt,
         task: 'match_explanation',
@@ -148,7 +625,7 @@ class GeminiService {
     }
 
     const result = await response.json();
-    
+
     // Transform Gemini response to match expected format
     return {
       text: result.candidates?.[0]?.content?.parts?.[0]?.text || '',
@@ -165,7 +642,7 @@ class GeminiService {
    */
   buildPortfolioAnalysisPrompt(portfolioContent, githubData) {
     // Build GitHub repos summary from Octokit data
-    const reposSummary = githubData.topProjects?.map(repo => 
+    const reposSummary = githubData.topProjects?.map(repo =>
       `- ${repo.name}: ${repo.description || 'No description'} | README: ${repo.readmeFirstParagraph || 'N/A'} | Commits: ${repo.commits || 0}`
     ).join('\n') || 'No repositories available';
 
@@ -321,13 +798,13 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
   parsePortfolioAnalysisResponse(response) {
     try {
       const content = response.text || response.content || response.choices?.[0]?.message?.content;
-      
+
       // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
-      
+
       // Fallback parsing
       return {
         codeQuality: 50,
@@ -358,7 +835,7 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
   parseImprovementSuggestions(response) {
     // Valid categories that match the MongoDB schema enum
     const validCategories = ['code', 'portfolio', 'github', 'documentation'];
-    
+
     // Map common AI-generated categories to valid ones
     const categoryMapping = {
       'general': 'portfolio',
@@ -397,7 +874,7 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
 
     try {
       const content = response.text || response.content || response.choices?.[0]?.message?.content;
-      
+
       // Try to extract JSON array from the response
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
@@ -409,7 +886,7 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
           category: sanitizeCategory(item.category)
         }));
       }
-      
+
       // Fallback: parse text suggestions
       const lines = content.split('\n').filter(line => line.trim());
       return lines.slice(0, 5).map((suggestion, index) => ({
@@ -435,13 +912,13 @@ Write a 2-3 sentence explanation highlighting the strongest match factors and an
   parseJobMatchResponse(response) {
     try {
       const content = response.text || response.content || response.choices?.[0]?.message?.content;
-      
+
       // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
-      
+
       // Fallback scoring
       return {
         overallScore: 75,

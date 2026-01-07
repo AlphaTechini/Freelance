@@ -88,6 +88,70 @@ class PortfolioAnalyzer {
   }
 
   /**
+   * Analyze portfolio URL using search grounding first, with web scraping as fallback
+   * @param {string} portfolioUrl - Portfolio website URL
+   * @returns {Promise<object>} - Analysis result with data and method used
+   */
+  async analyzePortfolioUrl(portfolioUrl) {
+    if (!portfolioUrl) {
+      return { data: null, method: 'none' };
+    }
+
+    // Try Gemini Search Grounding first (preferred method)
+    try {
+      console.log(`Analyzing portfolio with Google Search grounding: ${portfolioUrl}`);
+      const searchResult = await geminiService.analyzePortfolioWebsiteWithSearch(portfolioUrl);
+
+      if (searchResult && searchResult.canAccessWebsite && searchResult.scores?.overall > 0) {
+        console.log('Search grounding successful');
+        return {
+          data: {
+            url: portfolioUrl,
+            title: searchResult.firstImpression || '',
+            description: searchResult.llmAssessment || '',
+            aiScores: searchResult.scores,
+            strengths: searchResult.strengths || [],
+            weaknesses: searchResult.weaknesses || [],
+            suggestions: searchResult.suggestions || [],
+            sources: searchResult.sources || [],
+            usedSearchGrounding: true,
+            // Provide minimal quality metrics for compatibility
+            qualityMetrics: {
+              qualityScore: searchResult.scores.overall || 0,
+              hasViewportMeta: true, // Assume modern portfolio
+              wordCount: 0,
+              headings: 0,
+              images: 0,
+              sections: 0,
+              links: 0
+            }
+          },
+          method: 'search_grounding'
+        };
+      }
+      console.log('Search grounding returned incomplete data, falling back to scraping');
+    } catch (error) {
+      console.warn(`Search grounding failed for ${portfolioUrl}:`, error.message);
+    }
+
+    // Fall back to web scraping
+    try {
+      console.log(`Falling back to web scraping for: ${portfolioUrl}`);
+      const scrapedData = await webScrapingService.analyzePortfolio(portfolioUrl);
+      return {
+        data: scrapedData,
+        method: 'scraping'
+      };
+    } catch (error) {
+      console.error(`Web scraping also failed for ${portfolioUrl}:`, error.message);
+      return {
+        data: null,
+        method: 'failed'
+      };
+    }
+  }
+
+  /**
    * Fetch enhanced repo metrics using the detailed metrics service
    * @param {string} username - GitHub username
    * @param {string[]} repoNames - Array of repository names
@@ -316,6 +380,123 @@ class PortfolioAnalyzer {
   }
 
   /**
+   * Calculate portfolio website score based on URL analysis
+   * This evaluates the portfolio website itself (design, structure, responsiveness, content)
+   * @param {object} portfolioData - Portfolio analysis results from webScrapingService
+   * @returns {number} - Portfolio website score (0-100)
+   */
+  calculatePortfolioWebsiteScore(portfolioData) {
+    // If no portfolio data or no URL analyzed, return 0
+    if (!portfolioData || !portfolioData.url) {
+      return 0;
+    }
+
+    let score = 0;
+    const qualityMetrics = portfolioData.qualityMetrics || {};
+
+    // ===================
+    // STRUCTURE & CONTENT (max 30 points)
+    // ===================
+
+    // Has proper title (max 5 points)
+    if (portfolioData.title && portfolioData.title !== 'Untitled' && portfolioData.title.length > 3) {
+      score += 5;
+    }
+
+    // Has description/about section (max 5 points)
+    if (portfolioData.description && portfolioData.description.length > 50) {
+      score += 5;
+    } else if (portfolioData.description && portfolioData.description.length > 20) {
+      score += 3;
+    }
+
+    // Word count indicates content depth (max 10 points)
+    const wordCount = qualityMetrics.wordCount || 0;
+    if (wordCount > 500) score += 10;
+    else if (wordCount > 300) score += 7;
+    else if (wordCount > 150) score += 4;
+    else if (wordCount > 50) score += 2;
+
+    // Heading structure (max 10 points)
+    const headings = qualityMetrics.headings || 0;
+    if (headings >= 5) score += 10;
+    else if (headings >= 3) score += 7;
+    else if (headings >= 1) score += 4;
+
+    // ===================
+    // VISUAL PRESENTATION (max 25 points)
+    // ===================
+
+    // Has images (max 10 points)
+    const images = qualityMetrics.images || 0;
+    if (images >= 5) score += 10;
+    else if (images >= 3) score += 7;
+    else if (images >= 1) score += 4;
+
+    // Has sections/structured layout (max 10 points)
+    const sections = qualityMetrics.sections || 0;
+    if (sections >= 4) score += 10;
+    else if (sections >= 2) score += 6;
+    else if (sections >= 1) score += 3;
+
+    // Has navigation links (max 5 points)
+    const links = qualityMetrics.links || 0;
+    if (links >= 10) score += 5;
+    else if (links >= 5) score += 3;
+    else if (links >= 2) score += 1;
+
+    // ===================
+    // TECHNICAL QUALITY (max 25 points)
+    // ===================
+
+    // Responsive design (viewport meta) (max 10 points)
+    if (qualityMetrics.hasViewportMeta) score += 10;
+
+    // Proper meta tags (max 10 points)
+    const metaTagCount = qualityMetrics.metaTagCount || 0;
+    if (metaTagCount >= 8) score += 10;
+    else if (metaTagCount >= 5) score += 7;
+    else if (metaTagCount >= 3) score += 4;
+
+    // Website quality score from scraping (weighted, max 5 points)
+    const scrapedQuality = qualityMetrics.qualityScore || 0;
+    if (scrapedQuality >= 80) score += 5;
+    else if (scrapedQuality >= 60) score += 3;
+    else if (scrapedQuality >= 40) score += 2;
+
+    // ===================
+    // PROJECTS SHOWCASE (max 20 points)
+    // ===================
+
+    // Has projects listed (max 10 points)
+    const projectCount = portfolioData.projects?.length || 0;
+    if (projectCount >= 5) score += 10;
+    else if (projectCount >= 3) score += 7;
+    else if (projectCount >= 1) score += 4;
+
+    // Projects have descriptions (max 5 points)
+    const projectsWithDesc = portfolioData.projects?.filter(p => p.description && p.description.length > 20).length || 0;
+    if (projectsWithDesc >= 3) score += 5;
+    else if (projectsWithDesc >= 2) score += 3;
+    else if (projectsWithDesc >= 1) score += 1;
+
+    // Has deployed projects/live demos (max 5 points)
+    if (portfolioData.hasDeployment) score += 5;
+
+    // ===================
+    // TECHNOLOGY SHOWCASE (bonus, uncapped contribution to score)
+    // ===================
+
+    // Technologies mentioned (bonus up to 5 points, won't exceed 100 total)
+    const techCount = portfolioData.technologies?.length || 0;
+    if (techCount >= 8) score += 5;
+    else if (techCount >= 5) score += 3;
+    else if (techCount >= 2) score += 1;
+
+    return Math.max(0, Math.min(Math.round(score), 100));
+  }
+
+  /**
    * Sanitize improvements array to ensure valid categories for MongoDB schema
    * @param {Array} improvements - Raw improvements array
    * @returns {Array} - Sanitized improvements array
@@ -539,10 +720,15 @@ class PortfolioAnalyzer {
       }
 
       // Perform parallel analysis
-      const [portfolioData, basicGithubData] = await Promise.all([
-        portfolioUrl ? webScrapingService.analyzePortfolio(portfolioUrl) : null,
+      // GitHub analysis runs in parallel, Portfolio analysis uses search grounding first
+      const [portfolioAnalysisResult, basicGithubData] = await Promise.all([
+        portfolioUrl ? this.analyzePortfolioUrl(portfolioUrl) : { data: null, method: 'none' },
         githubUrl ? githubService.analyzeGitHubProfile(githubUrl) : null
       ]);
+
+      let portfolioData = portfolioAnalysisResult.data;
+      const portfolioAnalysisMethod = portfolioAnalysisResult.method;
+      console.log(`Portfolio analyzed using: ${portfolioAnalysisMethod}`);
 
       // Enhance GitHub data with detailed repo metrics if we have repos
       let githubData = basicGithubData;
@@ -571,12 +757,23 @@ class PortfolioAnalyzer {
       let scores = {
         codeQuality: githubData ? this.calculateCodeQualityScore(githubData) : 0,
         projectDepth: this.calculateProjectDepthScore(portfolioData || {}, githubData || {}),
-        portfolioCompleteness: this.calculatePortfolioCompletenessScore(portfolioData || {}, githubData || {})
+        portfolioCompleteness: this.calculatePortfolioCompletenessScore(portfolioData || {}, githubData || {}),
+        portfolioWebsite: 0
       };
 
-      // Enhance scores with Gemini AI analysis
+      // If we have AI-generated scores from search grounding, use them directly
+      if (portfolioData?.aiScores) {
+        scores.portfolioWebsite = portfolioData.aiScores.overall || 0;
+        // Store the detailed AI scores
+        portfolioData.websiteAnalysis = portfolioData.aiScores;
+      } else if (portfolioData) {
+        // Fallback to traditional scoring
+        scores.portfolioWebsite = this.calculatePortfolioWebsiteScore(portfolioData);
+      }
+
+      // Enhance scores with Gemini AI analysis (only if we have scraped content)
       try {
-        if (portfolioData && portfolioData.content) {
+        if (portfolioData && portfolioData.content && portfolioAnalysisMethod === 'scraping') {
           const aiAnalysis = await geminiService.analyzePortfolioContent(
             portfolioData.content,
             githubData || {}
@@ -605,8 +802,15 @@ class PortfolioAnalyzer {
         console.warn('Gemini AI analysis failed, using traditional scoring:', error.message);
       }
 
-      // Calculate overall score
-      scores.overall = Math.round((scores.codeQuality + scores.projectDepth + scores.portfolioCompleteness) / 3);
+      // Calculate overall score (now includes portfolio website score)
+      // If portfolio website was analyzed, include it in the average
+      if (scores.portfolioWebsite > 0) {
+        scores.overall = Math.round(
+          (scores.codeQuality + scores.projectDepth + scores.portfolioCompleteness + scores.portfolioWebsite) / 4
+        );
+      } else {
+        scores.overall = Math.round((scores.codeQuality + scores.projectDepth + scores.portfolioCompleteness) / 3);
+      }
 
       // Generate improvement suggestions using Gemini AI (Requirement 2.4)
       const improvements = await this.generateImprovementSuggestions(scores, portfolioData || {}, githubData || {});
@@ -649,7 +853,8 @@ class PortfolioAnalyzer {
             overall: 0,
             codeQuality: 0,
             projectDepth: 0,
-            portfolioCompleteness: 0
+            portfolioCompleteness: 0,
+            portfolioWebsite: 0
           },
           githubData: {},
           portfolioData: {},
@@ -719,8 +924,10 @@ class PortfolioAnalyzer {
         codeQuality: Math.max(30, Math.min(95, Math.round(baseScore + (Math.random() * variance - variance / 2)))),
         projectDepth: Math.max(25, Math.min(90, Math.round(baseScore + (Math.random() * variance - variance / 2)))),
         portfolioCompleteness: Math.max(20, Math.min(85, Math.round(baseScore + (Math.random() * variance - variance / 2)))),
+        portfolioWebsite: 0, // No portfolio URL in mock analysis
         overall: 0
       };
+      // Mock analysis doesn't have portfolio website, so use 3-score average
       scores.overall = Math.round((scores.codeQuality + scores.projectDepth + scores.portfolioCompleteness) / 3);
 
       // Generate mock data based on skills

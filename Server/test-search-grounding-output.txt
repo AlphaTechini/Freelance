@@ -1,0 +1,77 @@
+============================================================
+GOOGLE SEARCH GROUNDING TEST - PORTFOLIO ANALYSIS
+============================================================
+
+Testing URL: https://cyberpunkinc.xyz
+Timestamp: 2026-01-07T12:58:28.684Z
+
+API Key found: AIzaSyCt...
+
+Step 1: Initializing Gemini with Google Search Grounding...
+  - Model: gemini-2.5-flash
+  - Tool: googleSearch enabled
+
+Step 2: Building portfolio analysis prompt...
+  - Prompt length: 1645 chars
+
+Step 3: Sending request to Gemini with Search Grounding...
+  (This may take 15-60 seconds as Gemini visits the website...)
+
+============================================================
+RAW RESPONSE (completed in 3.87 seconds)
+============================================================
+
+Response Text:
+
+
+============================================================
+GROUNDING METADATA (Citations/Sources)
+============================================================
+
+Grounding metadata found!
+
+No web sources found in grounding metadata
+
+Raw Grounding Metadata:
+{
+  "webSearchQueries": [
+    "cyberpunkinc.xyz developer portfolio",
+    ""
+  ]
+}
+
+============================================================
+PARSED ANALYSIS RESULTS
+============================================================
+
+Website Accessible: NO
+
+SCORES (0-100):
+------------------------------------------------------------
+  Specialization Clarity:  0
+  Experience Showcase:     0
+  Projects Display:        0
+  Call-to-Actions:         0
+  Design Quality:          0
+  Completeness:            0
+------------------------------------------------------------
+  OVERALL SCORE:           0
+
+FIRST IMPRESSION:
+  N/A
+
+STRENGTHS:
+  None identified
+
+WEAKNESSES:
+  None identified
+
+IMPROVEMENT SUGGESTIONS:
+  None provided
+
+LLM ASSESSMENT:
+  Failed to parse response: 
+
+============================================================
+TEST COMPLETED SUCCESSFULLY
+============================================================

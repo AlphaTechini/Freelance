@@ -7,20 +7,20 @@ const portfolioAnalysisSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  
+
   // URLs analyzed
   portfolioUrl: {
     type: String,
     default: '',
     trim: true
   },
-  
+
   githubUrl: {
     type: String,
     default: '',
     trim: true
   },
-  
+
   // AI-generated scores (Requirement 2.3)
   scores: {
     overall: {
@@ -46,9 +46,15 @@ const portfolioAnalysisSchema = new mongoose.Schema({
       required: true,
       min: 0,
       max: 100
+    },
+    portfolioWebsite: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100
     }
   },
-  
+
   // GitHub data extracted (Requirement 2.2)
   githubData: {
     repositories: {
@@ -97,7 +103,7 @@ const portfolioAnalysisSchema = new mongoose.Schema({
       }
     }]
   },
-  
+
   // Portfolio data extracted (Requirement 2.2)
   portfolioData: {
     projects: [{
@@ -136,7 +142,7 @@ const portfolioAnalysisSchema = new mongoose.Schema({
       default: false
     }
   },
-  
+
   // AI-generated improvement suggestions (Requirement 2.4)
   improvements: [{
     priority: {
@@ -157,20 +163,20 @@ const portfolioAnalysisSchema = new mongoose.Schema({
       trim: true
     }
   }],
-  
+
   // Analysis metadata
   analyzedAt: {
     type: Date,
     default: Date.now
   },
-  
+
   // Analysis status
   status: {
     type: String,
     enum: ['pending', 'analyzing', 'completed', 'failed'],
     default: 'pending'
   },
-  
+
   // Error information if analysis failed
   error: {
     type: String,
@@ -187,21 +193,26 @@ portfolioAnalysisSchema.index({ analyzedAt: -1 });
 portfolioAnalysisSchema.index({ status: 1 });
 
 // Static method to find latest analysis for candidate
-portfolioAnalysisSchema.statics.findLatestForCandidate = function(candidateId) {
+portfolioAnalysisSchema.statics.findLatestForCandidate = function (candidateId) {
   return this.findOne({ candidateId })
     .sort({ analyzedAt: -1 });
 };
 
 // Static method to find all analyses for candidate
-portfolioAnalysisSchema.statics.findAllForCandidate = function(candidateId) {
+portfolioAnalysisSchema.statics.findAllForCandidate = function (candidateId) {
   return this.find({ candidateId })
     .sort({ analyzedAt: -1 });
 };
 
 // Method to calculate overall score
-portfolioAnalysisSchema.methods.calculateOverallScore = function() {
-  const { codeQuality, projectDepth, portfolioCompleteness } = this.scores;
-  this.scores.overall = Math.round((codeQuality + projectDepth + portfolioCompleteness) / 3);
+portfolioAnalysisSchema.methods.calculateOverallScore = function () {
+  const { codeQuality, projectDepth, portfolioCompleteness, portfolioWebsite } = this.scores;
+  // If portfolioWebsite score exists and is > 0, include it in the average
+  if (portfolioWebsite && portfolioWebsite > 0) {
+    this.scores.overall = Math.round((codeQuality + projectDepth + portfolioCompleteness + portfolioWebsite) / 4);
+  } else {
+    this.scores.overall = Math.round((codeQuality + projectDepth + portfolioCompleteness) / 3);
+  }
   return this.scores.overall;
 };
 
